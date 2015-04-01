@@ -1,0 +1,26 @@
+Package: DMRcaller
+Type: Package
+Title: Differentially Methylated Regions caller
+Version: 0.99.5
+Date: 2015-02-26
+Authors@R: c(person(given="Nicolae Radu", family="Zabet", role =
+        c("aut","cre"), email = "n.r.zabet@gen.cam.ac.uk"),
+        person(given="Jonathan", family="Tsang", role = "aut", email =
+        "jmft2@cam.ac.uk"))
+Author: Nicolae Radu Zabet <n.r.zabet@gen.cam.ac.uk> and Jonathan
+        Michael Foonlan Tsang <jmft2@cam.ac.uk>
+Maintainer: Nicolae Radu Zabet <n.r.zabet@gen.cam.ac.uk>
+Description: Uses Bisulfite sequencing data in two conditions and
+        identifies differentially methylated regions between the
+        conditions in CG and non-CG context. The input is the CX report
+        files produced by Bismark and the output is a list of DMRs
+        stored as GRanges objects.
+License: GPL-3
+LazyLoad: yes
+Imports: parallel, Rcpp, RcppRoll
+Depends: R (>= 3.2), GenomicRanges, IRanges, S4Vectors
+Suggests: knitr, RUnit, BiocGenerics
+biocViews: DifferentialMethylation, DNAMethylation, Software,
+        Sequencing, Coverage
+VignetteBuilder: knitr
+NeedsCompilation: no

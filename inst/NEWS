@@ -1,0 +1,37 @@
+Version 0.99.3:
+    - addressed a warning in plotLocalMethylationProfile when plotting 
+      transposable elements on the negative strand.
+    - in plotLocalMethylationProfile if regionType metadata column of the DMRs is 
+      not specified or is not "gain" or "loss", the DMRs are drawn as a filled 
+      box.
+    - in plotLocalMethylationProfile the mean lines are plotted using shades of 
+      colour, where lighter colours indicate fewer reads, while darker colours 
+      indicate higher number of reads.
+
+    - computeDMRs and computeDMRsBins were joined into one function computeDMRs. 
+      This function takes four additional parameters: method, kernelFunction, 
+      lambda, binSize. The method parameters selects which method to use and can 
+      take one of the three values: "noise_filter", "neighbourhood" or "bins". 
+        - If "bins" method is selected, then binSize parameter is required.
+        - For "noise_filter" method, the user is required to specify the 
+          windowSize in bp and the kernelFunction. The Kernel functions that 
+          were implemented are: "uniform", "triangular", "gaussian" and 
+          "epanechnicov". The triangular kernel function leads to the same 
+          results as the previously implemented computeDMRs functions. Note that 
+          the default parameters are set to select this method and kernel 
+          function and, thus, all previous code should run. We implemented three 
+          additional kernels: uniform, gaussian and epanechnicov. For Gaussian 
+          kernel, the lambda parameter is required.
+        - We implemented an additional method called "neighbourhood". This 
+          method call individual cytosines as differentially methylated (DMCs) 
+          or not and then attempts to merge the neighbouring DMCs within a 
+          certain distance only if the difference in methylation levels is still 
+          statistically significant after joining them. 
+    - windowSize parameter of computeDMRs accepts only integers higher than 0
+    - We joined computeDMGEs and filterDMRs into a single function called 
+      filterDMRs. For the new filterDMRs function, we removed regions parameters 
+      and now the method checks all supplied potential DMRs.
+
+
+Version 0.99.2:
+    Initial release of the package
