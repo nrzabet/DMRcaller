@@ -504,7 +504,7 @@ computeDMRs <- function(methylationData1,
   
   
   cat("Computing DMRs \n")
-  
+  DMPs <- GRanges()
   if(length(localContextMethylationData) > 0){
     DMPs <- localContextMethylationData
     DMPs$pValue <- .computeAdjuestedPValues(test, 
