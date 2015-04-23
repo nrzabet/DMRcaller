@@ -51,7 +51,7 @@
   } else if(kernelFunction =="gaussian"){
     kernel <- .gaussianKernel(lambda, - windowSizeHalf:windowSizeHalf)
   } else if(kernelFunction =="epanechnicov"){
-    kernel <- .epanechnicovKernel(-windowSizeHalf:windowSizeHalf)
+    kernel <- .epanechnicovKernel(-windowSizeHalf:windowSizeHalf, windowSizeHalf)
   } else{
     stop(paste("Unknown kernel function: ", kernelFunction, ". 
                It should be one of \"uniform\", \"triangular\", \"gaussian\", \"epanechnicov\"",sep=""))
@@ -65,7 +65,6 @@
     smoothedVector <- rawVector 
   }
   
-  
   return(smoothedVector);
 }
 
@@ -74,8 +73,8 @@
   return(exp(-lambda*x^2))
 }
 
-.epanechnicovKernel <- function(x){
-  return((3*(1-x^2))/4)
+.epanechnicovKernel <- function(x, max){
+  return((3*(1-(x/max)^2))/4)
 }
 
 #' This function computes the moving sum for a vector that has missing values. 
