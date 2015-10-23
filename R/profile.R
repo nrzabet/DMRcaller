@@ -76,8 +76,8 @@ computeMethylationProfile <- function(methylationData,
   ranges <- GRanges(seqname, IRanges(seqs, seqs+windowSize-1))
   
   
-  #ranges <- .analyseReadsInsideBinsOneSample(contextMethylationData, ranges, region)
-  ranges <- .analyseReadsInsideRegionsOneSample(contextMethylationData, ranges)
+  ranges <- .analyseReadsInsideBinsOneSample(contextMethylationData, ranges, region)
+  #ranges <- .analyseReadsInsideRegionsOneSample(contextMethylationData, ranges)
   ranges$context <- paste(context, collapse = "_")
   
   return(ranges)
