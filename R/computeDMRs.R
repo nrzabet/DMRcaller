@@ -280,15 +280,17 @@ computeDMRs <- function(methylationData1,
   
   
   contextMethylationData1 <- methylationData1[methylationData1$context%in%context]
-  contextMethylationData2 <- methylationData2[methylationData2$context%in%context]
-  
-  
+  rm(methylationData1)
   localContextMethylationData1 <- contextMethylationData1[queryHits(findOverlaps(contextMethylationData1, regions))]
-  localContextMethylationData2 <- contextMethylationData2[queryHits(findOverlaps(contextMethylationData2, regions))]
+  rm(contextMethylationData1)  
   
+  contextMethylationData2 <- methylationData2[methylationData2$context%in%context]
+  rm(methylationData2)
+  localContextMethylationData2 <- contextMethylationData2[queryHits(findOverlaps(contextMethylationData2, regions))]
+  rm(contextMethylationData2)  
   
   localContextMethylationData <- .joinMethylationData(localContextMethylationData1, localContextMethylationData2)
-  
+  rm(localContextMethylationData1, localContextMethylationData2)
   
   regionsList <- .splitGRangesEqualy(regions, cores)
   
@@ -422,9 +424,9 @@ computeDMRs <- function(methylationData1,
     } else{
       computedDMRs <- .analyseReadsInsideRegions(localContextMethylationDataDMRs, computedDMRs)
     }
-    
+    computedDMRs <- computedDMRs[computedDMRs$cytosinesCount > 0]
+
     computedDMRs$pValue <- .computeaAjustedPValuesInDMRs(test, computedDMRs ,alternative = "two.sided")
-    
     
     computedDMRs <- computedDMRs[computedDMRs$pValue < pValueThreshold & 
                                    abs(computedDMRs$proportion1 - computedDMRs$proportion2) >= minProportionDifference & 
@@ -493,15 +495,17 @@ computeDMRs <- function(methylationData1,
   
   
   contextMethylationData1 <- methylationData1[methylationData1$context%in%context]
-  contextMethylationData2 <- methylationData2[methylationData2$context%in%context]
-  
-  
+  rm(methylationData1)
   localContextMethylationData1 <- contextMethylationData1[queryHits(findOverlaps(contextMethylationData1, regions))]
-  localContextMethylationData2 <- contextMethylationData2[queryHits(findOverlaps(contextMethylationData2, regions))]
+  rm(contextMethylationData1)  
   
+  contextMethylationData2 <- methylationData2[methylationData2$context%in%context]
+  rm(methylationData2)
+  localContextMethylationData2 <- contextMethylationData2[queryHits(findOverlaps(contextMethylationData2, regions))]
+  rm(contextMethylationData2)  
   
   localContextMethylationData <- .joinMethylationData(localContextMethylationData1, localContextMethylationData2)
-  
+  rm(localContextMethylationData1, localContextMethylationData2)
   
   cat("Computing DMRs \n")
   DMPs <- GRanges()
@@ -595,15 +599,17 @@ computeDMRs <- function(methylationData1,
   cat("Extract methylation in the corresponding context \n")
   
   contextMethylationData1 <- methylationData1[methylationData1$context%in%context]
-  contextMethylationData2 <- methylationData2[methylationData2$context%in%context]
-  
-  
+  rm(methylationData1)
   localContextMethylationData1 <- contextMethylationData1[queryHits(findOverlaps(contextMethylationData1, regions))]
-  localContextMethylationData2 <- contextMethylationData2[queryHits(findOverlaps(contextMethylationData2, regions))]
+  rm(contextMethylationData1)  
   
+  contextMethylationData2 <- methylationData2[methylationData2$context%in%context]
+  rm(methylationData2)
+  localContextMethylationData2 <- contextMethylationData2[queryHits(findOverlaps(contextMethylationData2, regions))]
+  rm(contextMethylationData2)  
   
   localContextMethylationData <- .joinMethylationData(localContextMethylationData1, localContextMethylationData2)
-  
+  rm(localContextMethylationData1, localContextMethylationData2)
   
   
   regionsList <- .splitGRangesEqualy(regions, cores)
@@ -825,14 +831,17 @@ filterDMRs <- function(methylationData1,
     cat("Extract methylation in the corresponding context \n")
     
     contextMethylationData1 <- methylationData1[methylationData1$context%in%context]
-    contextMethylationData2 <- methylationData2[methylationData2$context%in%context]
-    
-    
+    rm(methylationData1)
     localContextMethylationData1 <- contextMethylationData1[queryHits(findOverlaps(contextMethylationData1, regions))]
-    localContextMethylationData2 <- contextMethylationData2[queryHits(findOverlaps(contextMethylationData2, regions))]
+    rm(contextMethylationData1)  
     
+    contextMethylationData2 <- methylationData2[methylationData2$context%in%context]
+    rm(methylationData2)
+    localContextMethylationData2 <- contextMethylationData2[queryHits(findOverlaps(contextMethylationData2, regions))]
+    rm(contextMethylationData2)  
     
     localContextMethylationData <- .joinMethylationData(localContextMethylationData1, localContextMethylationData2)
+    rm(localContextMethylationData1, localContextMethylationData2)
     
     
     regionsList <- .splitGRangesEqualy(regions, cores)
@@ -1045,14 +1054,20 @@ mergeDMRsIteratively <- function(DMRs,
   
   .stopIfNotAll(c(.isInteger(cores, positive=TRUE)), 
                 " the number of cores to use when computing the DMRs.")
+  totalRegion <- reduce(DMRs, drop.empty.ranges=FALSE, min.gapwidth=minGap, ignore.strand=TRUE)
   
   contextMethylationData1 <- methylationData1[methylationData1$context%in%context]
-  contextMethylationData2 <- methylationData2[methylationData2$context%in%context]
-  
-  totalRegion <- reduce(DMRs, drop.empty.ranges=FALSE, min.gapwidth=minGap, ignore.strand=TRUE)
+  rm(methylationData1)
   localContextMethylationData1 <- contextMethylationData1[queryHits(findOverlaps(contextMethylationData1, totalRegion))]
+  rm(contextMethylationData1)  
+  
+  contextMethylationData2 <- methylationData2[methylationData2$context%in%context]
+  rm(methylationData2)
   localContextMethylationData2 <- contextMethylationData2[queryHits(findOverlaps(contextMethylationData2, totalRegion))]
+  rm(contextMethylationData2)  
+  
   localContextMethylationData <- .joinMethylationData(localContextMethylationData1, localContextMethylationData2)
+  rm(localContextMethylationData1, localContextMethylationData2)
   
   cat("Merge DMRs iteratively ...\n")
   
@@ -1126,6 +1141,7 @@ analyseReadsInsideRegionsForCondition <- function(regions,
   
   cat("Extract methylation levels in corresponding context ...\n")
   contextMethylationData <- methylationData[methylationData$context%in%context]
+  rm(methylationData)
   
   cat("Compute reads inside each region ...\n")
   if(length(regions) > 0){

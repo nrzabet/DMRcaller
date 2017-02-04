@@ -50,40 +50,42 @@ computeMethylationProfile <- function(methylationData,
                                       windowSize = floor(width(region)/500),
                                       context = "CG") {
   .validateMethylationData(methylationData)
-
+  
   .validateGRanges(region, methylationData, length=1, generateGenomeWide=FALSE)
-
+  
   .validateContext(context)
-
+  
   .stopIfNotAll(c(.isInteger(windowSize, positive=TRUE)),
                 " the window size used to compute the methylation profile is an integer higher or equal to 0")
-
-
+  
+  
   seqname <- seqnames(region)
   minPos <- start(region)
   maxPos <- end(region)
-
+  
   hits <- findOverlaps(methylationData, region)
-
-
-
+  
+  
+  
   localMethylationData <- methylationData[queryHits(hits)];
+  rm(methylationData)
   contextMethylationData <- localMethylationData[localMethylationData$context%in%context];
-
+  rm(localMethylationData)
+  
   cat("Calculating methylation profile for ", .printGenomicRanges(region), " using a window of ", windowSize, " bp \n")
   seqs = seq(minPos, maxPos - windowSize, windowSize);
-
+  
   ranges <- GRanges(seqname, IRanges(seqs, seqs+windowSize-1))
-
+  
   #for windowSize <= 2000 Bins method is faster, but for anything else, regions method is faster
   if(windowSize <= 2000){
     ranges <- .analyseReadsInsideBinsOneSample(contextMethylationData, ranges, region)
   } else{
     ranges <- .analyseReadsInsideRegionsOneSample(contextMethylationData, ranges)
   }
-
+  
   ranges$context <- paste(context, collapse = "_")
-
+  
   return(ranges)
 }
 
