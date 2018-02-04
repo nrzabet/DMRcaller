@@ -50,42 +50,42 @@ computeMethylationProfile <- function(methylationData,
                                       windowSize = floor(width(region)/500),
                                       context = "CG") {
   .validateMethylationData(methylationData)
-  
+
   .validateGRanges(region, methylationData, length=1, generateGenomeWide=FALSE)
-  
+
   .validateContext(context)
-  
+
   .stopIfNotAll(c(.isInteger(windowSize, positive=TRUE)),
                 " the window size used to compute the methylation profile is an integer higher or equal to 0")
-  
-  
+
+
   seqname <- seqnames(region)
   minPos <- start(region)
   maxPos <- end(region)
-  
+
   hits <- findOverlaps(methylationData, region)
-  
-  
-  
+
+
+
   localMethylationData <- methylationData[queryHits(hits)];
   rm(methylationData)
   contextMethylationData <- localMethylationData[localMethylationData$context%in%context];
   rm(localMethylationData)
-  
+
   cat("Calculating methylation profile for ", .printGenomicRanges(region), " using a window of ", windowSize, " bp \n")
   seqs = seq(minPos, maxPos - windowSize, windowSize);
-  
+
   ranges <- GRanges(seqname, IRanges(seqs, seqs+windowSize-1))
-  
+
   #for windowSize <= 2000 Bins method is faster, but for anything else, regions method is faster
   if(windowSize <= 2000){
     ranges <- .analyseReadsInsideBinsOneSample(contextMethylationData, ranges, region)
   } else{
     ranges <- .analyseReadsInsideRegionsOneSample(contextMethylationData, ranges)
   }
-  
+
   ranges$context <- paste(context, collapse = "_")
-  
+
   return(ranges)
 }
 
@@ -376,7 +376,7 @@ plotMethylationProfileFromData <- function(methylationData1,
   if(is.null(regions)){
     recomputeRegions <- TRUE
   }
-  if(!recomputeRegions & (typeof(regions) != "S4" | class(regions)[1] != "GRanges" | length(regions) < 1)){
+  if(!recomputeRegions & (!is(regions, "GRanges") | length(regions) < 1)){
     recomputeRegions <- TRUE
   }
 
@@ -494,13 +494,11 @@ computeOverlapProfile <- function(subRegions,
                                   binary=TRUE,
                                   cores = 1){
   .stopIfNotAll(c(!is.null(subRegions),
-                  typeof(subRegions) == "S4",
-                  class(subRegions)[1] == "GRanges"),
+                  is(subRegions, "GRanges")),
                 paste(" subRegions neads to be a GRanges object.",sep=""))
 
   .stopIfNotAll(c(!is.null(largeRegion),
-                  typeof(largeRegion) == "S4",
-                  class(largeRegion)[1] == "GRanges",
+                  is(largeRegion, "GRanges"),
                   length(largeRegion) == 1),
                 paste(" largeRegion neads to be a GRanges object with one location (e.g. entire chromosome).",sep=""))
 
@@ -610,54 +608,29 @@ computeOverlapProfile <- function(subRegions,
 #' @export
 plotOverlapProfile <- function(overlapsProfiles1, overlapsProfiles2=NULL, names=NULL,
                                labels=NULL, col=NULL, title="", logscale=FALSE, maxValue=NULL) {
-  maxScore <- 0
-  minScore <- 0
 
   .stopIfNotAll(c(!is.null(overlapsProfiles1),
-                  typeof(overlapsProfiles1) == "S4",
-                  class(overlapsProfiles1)[1] == "GRangesList",
+                  is(overlapsProfiles1, "GRangesList"),
                   length(overlapsProfiles1) > 0),
                 " overlapsProfiles1 needs to be a GRangesList object")
-  for(i in 1:length(overlapsProfiles1)){
-    .stopIfNotAll(c(!is.null(overlapsProfiles1[[i]]),
-                    typeof(overlapsProfiles1[[i]]) == "S4",
-                    class(overlapsProfiles1[[i]])[1] == "GRanges",
-                    ncol(mcols(overlapsProfiles1[[i]])) >= 1,
-                    "score"%in%colnames(mcols(overlapsProfiles1[[i]]))),
-                  paste(" element ", i," of the overlapsProfiles1 is incorrect", sep=""))
-    if(max(overlapsProfiles1[[i]]$score) > maxScore){
-      maxScore <- max(overlapsProfiles1[[i]]$score)
-    }
-
-    if(min(overlapsProfiles1[[i]]$score) < minScore){
-      minScore <- min(overlapsProfiles1[[i]]$score)
-    }
-
-  }
+  unlisted_overlapsProfiles1 <- unlist(overlapsProfiles1, use.names=FALSE)
+  score <- mcols(unlisted_overlapsProfiles1)$score
+  if(is.null(score)) stop("elements of the overlapsProfiles1 are incorrect")
+  maxScore <- max(score)
+  minScore <- min(score)
 
   numberOfConditions <- 1
 
   if(!is.null(overlapsProfiles2)){
-    .stopIfNotAll(c(typeof(overlapsProfiles2) == "S4",
-                    class(overlapsProfiles2)[1] == "GRangesList",
+    .stopIfNotAll(c(is(overlapsProfiles2, "GRangesList"),
                     length(overlapsProfiles2) == length(overlapsProfiles1)),
                   " overlapsProfiles2 needs to be a GRangesList object with the same number of elements as overlapsProfiles1")
-    for(i in 1:length(overlapsProfiles2)){
-      .stopIfNotAll(c(!is.null(overlapsProfiles2[[i]]),
-                      typeof(overlapsProfiles2[[i]]) == "S4",
-                      class(overlapsProfiles2[[i]])[1] == "GRanges",
-                      ncol(mcols(overlapsProfiles2[[i]])) >= 1,
-                      "score"%in%colnames(mcols(overlapsProfiles2[[i]]))),
-                    paste(" element ", i," of the overlapsProfiles2 is incorrect", sep=""))
-      if(max(overlapsProfiles2[[i]]$score) > maxScore){
-        maxScore <- max(overlapsProfiles2[[i]]$score)
-      }
+    unlisted_overlapsProfiles2 <- unlist(overlapsProfiles2, use.names=FALSE)
+    score <- mcols(unlisted_overlapsProfiles2)$score
+    if(is.null(score)) stop("elements of the overlapsProfiles2 are incorrect")
+    maxScore <- max(maxScore, score)
+    minScore <- min(minScore, score)
 
-      if(min(overlapsProfiles2[[i]]$score) < minScore){
-        minScore <- min(overlapsProfiles2[[i]]$score)
-      }
-
-    }
     numberOfConditions <- 2
   }
 

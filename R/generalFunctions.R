@@ -1,4 +1,4 @@
-#' This function asses an expression and if this is FALSE stops the execution 
+#' This function asses an expression and if this is FALSE stops the execution
 #' and prints a message
 #'
 #' @title .stopIfNotAll
@@ -8,7 +8,7 @@
 #' @author Radu Zabet
 .stopIfNotAll <- function(exprs, errorMsg) {
   for(expr in exprs){
-    if (! expr) 
+    if (! expr)
       stop(errorMsg, call. = FALSE)
   }
 }
@@ -17,7 +17,7 @@
 #'
 #' @title .is.integer
 #' @param x the variable
-#' @param positive a logical variable indicating whether to check if the number 
+#' @param positive a logical variable indicating whether to check if the number
 #' is a positive integer
 #' @return a logical number whether the variable x is an integer or not
 #'
@@ -51,10 +51,9 @@
 #'
 #' @author Radu Zabet
 .printGenomicRanges <- function(gr){
-  
-  .stopIfNotAll(c(!is.null(gr), 
-                  typeof(gr) == "S4",
-                  class(gr)[1] == "GRanges"), 
+
+  .stopIfNotAll(c(!is.null(gr),
+                  is(gr, "GRanges")),
                 " gr is a GenomicRanges object");
   result=c();
   for(index in 1:length(gr)){
@@ -64,13 +63,13 @@
   return(result)
 }
 
-#' This function checks whether the argument is a vector containing colours 
+#' This function checks whether the argument is a vector containing colours
 #'
 #' @title Is color
 #' @param x the vector to be validated
-#' @param minLength the  minimum length of the vector. If NULL the minimum 
+#' @param minLength the  minimum length of the vector. If NULL the minimum
 #' length is 1
-#' @return a \code{logical} value indicating whether \code{x} is a vector 
+#' @return a \code{logical} value indicating whether \code{x} is a vector
 #' containing only colors
 #'
 #' @author Radu Zabet
@@ -79,15 +78,15 @@
   if(is.null(x)){
     isColor <- FALSE
   }
-  
+
   if(is.null(minLength)){
     minLength = 1
   }
-  
+
   if(isColor & length(x) < minLength){
     isColor <- FALSE
   }
-  
+
   if(isColor){
     for(i in 1:length(x)){
       if(!(x[i]%in%colors()) & length(grep("^#[0-9A-Fa-f]{6}$", x[i])) < 1){
@@ -95,25 +94,25 @@
       }
     }
   }
-  return(isColor)    
+  return(isColor)
 }
 
 
-#' Returns a \code{\link{GRanges}} object spanning from the first cytocine until 
+#' Returns a \code{\link{GRanges}} object spanning from the first cytocine until
 #' the last one on each chromosome
 #'
 #' @title Get whole chromosomes from methylation data
-#' @param methylationData the methylation data stored as a \code{\link{GRanges}} 
+#' @param methylationData the methylation data stored as a \code{\link{GRanges}}
 #' object with four metadata columns (see \code{\link{methylationDataList}}).
-#' @return a \code{\link{GRanges}} object will all chromosomes. 
-#' 
+#' @return a \code{\link{GRanges}} object will all chromosomes.
+#'
 #' @examples
 #' # load the methylation data
 #' data(methylationDataList)
-#' 
+#'
 #' # get all chromosomes
 #' chromosomes <- getWholeChromosomes(methylationDataList[["WT"]])
-#' 
+#'
 #' @author Nicolae Radu Zabet
 #' @export
 getWholeChromosomes <- function(methylationData){
@@ -128,63 +127,61 @@ getWholeChromosomes <- function(methylationData){
       min <- c(min, min(start(ranges(methylationData))[indexes]))
     }
   }
-  
+
   regions <- GRanges(seqnames = Rle(seqnames), ranges   = IRanges(min,max))
-  
+
   return(regions)
 }
 
 #' Checks whether the passed parameter has the correct format for methylation data
 #'
 #' @title Validate methylation data
-#' @param methylationData the methylation data stored as a \code{\link{GRanges}} 
+#' @param methylationData the methylation data stored as a \code{\link{GRanges}}
 #' object with six metadata columns (see \code{\link{methylationData}}).
 #'
 #' @author Radu Zabet
 .validateMethylationData <- function(methylationData, variableName="methylationData"){
-  .stopIfNotAll(c(!is.null(methylationData), 
-                  typeof(methylationData) == "S4",
-                  class(methylationData)[1] == "GRanges"), 
+  .stopIfNotAll(c(!is.null(methylationData),
+                  is(methylationData, "GRanges")),
                 " methylationData needs to be a GRanges object")
-  .stopIfNotAll(c(ncol(mcols(methylationData)) == 4, 
-                  length(methylationData) > 0), 
+  .stopIfNotAll(c(ncol(mcols(methylationData)) == 4,
+                  length(methylationData) > 0),
                 paste(" ",variableName," needs to have four metadata columns see readBismark function", sep=""))
-  
+
 }
 
 
 #' Checks whether the passed parameter has the correct format for methylation data
 #'
 #' @title Validate methylation data
-#' @param methylationData the methylation data stored as a \code{\link{GRanges}} 
+#' @param methylationData the methylation data stored as a \code{\link{GRanges}}
 #' object with six metadata columns (see \code{\link{methylationData}}).
 #'
 #' @author Radu Zabet
 .validateMethylationDataList <- function(methylationDataList){
-  .stopIfNotAll(c(!is.null(methylationDataList), 
-                  typeof(methylationDataList) == "S4",
-                  class(methylationDataList)[1] == "GRangesList",
-                  length(methylationDataList) > 0), 
+  .stopIfNotAll(c(!is.null(methylationDataList),
+                  is(methylationDataList, "GRangesList"),
+                  length(methylationDataList) > 0),
                 " methylationDataList needs to be a GRangesList object")
-  
+
   for(i in 1:length(methylationDataList)){
-    .stopIfNotAll(c(.validateMethylationData(methylationDataList[[i]])), 
+    .stopIfNotAll(c(.validateMethylationData(methylationDataList[[i]])),
                  paste(" element ", i," of the methylationDataList is incorrect", sep=""))
   }
-  
+
 }
 
 #' Checks whether the passed parameter is the context
 #'
 #' @title Validate context
-#' @param context the context in which the DMRs are computed (\code{"CG"}, 
+#' @param context the context in which the DMRs are computed (\code{"CG"},
 #' \code{"CHG"} or \code{"CHH"})
-#' @param length the expected length of the vector. If NULL any length is 
+#' @param length the expected length of the vector. If NULL any length is
 #' allowed
 #'
 #' @author Radu Zabet
 .validateContext <- function(context, length=NULL){
-  .stopIfNotAll(c(!is.null(context), all(is.character(context)), 
+  .stopIfNotAll(c(!is.null(context), all(is.character(context)),
                   all(context %in% c("CG","CHG","CHH"))),
                 " context can be only CG,CHG or CHH")
   if(!is.null(length)){
@@ -198,8 +195,8 @@ getWholeChromosomes <- function(methylationData){
 #' Checks whether the passed parameter is the statistical test
 #'
 #' @title Validate statistial test
-#' @param test the statistical test used to call DMRs (\code{"fisher"} for 
-#' Fisher's exact test or \code{"score"} for Score test). 
+#' @param test the statistical test used to call DMRs (\code{"fisher"} for
+#' Fisher's exact test or \code{"score"} for Score test).
 #'
 #' @author Radu Zabet
 .validateStatisticalTest <- function(test){
@@ -211,22 +208,22 @@ getWholeChromosomes <- function(methylationData){
 #' Checks whether the passed parameter is a \code{\link{GRanges}} object
 #'
 #' @title Validate GRanges
-#' @param regions a \code{\link{GRanges}} object. If \code{NULL} and 
-#' \code{generateGenomeWide} is true it uses the \code{methylationData} to 
+#' @param regions a \code{\link{GRanges}} object. If \code{NULL} and
+#' \code{generateGenomeWide} is true it uses the \code{methylationData} to
 #' compute the regions and returns this \code{\link{GRanges}} object
-#' @param methylationData the methylation data stored as a \code{\link{GRanges}} 
+#' @param methylationData the methylation data stored as a \code{\link{GRanges}}
 #' object with six metadata columns (see \code{\link{methylationData}}).
-#' @param length the expected length of the vector. If \code{NULL} any length is 
+#' @param length the expected length of the vector. If \code{NULL} any length is
 #' allowed.
-#' @param generateGenomeWide logical value to indicate whether to compute the 
+#' @param generateGenomeWide logical value to indicate whether to compute the
 #' regions that span over all the \code{methylationData}
 #' @return a \code{\link{GRanges}} object representing the regions
 #'
 #' @author Radu Zabet
 .validateGRanges <- function(regions, methylationData, length=NULL, generateGenomeWide=TRUE, variableName="regions", minLength=0){
-  
+
   if(is.null(regions) & generateGenomeWide){
-    if(typeof(methylationData) == "S4" & class(methylationData)[1] == "GRangesList" & length(methylationData) > 0){
+    if(is(methylationData, "GRangesList") & length(methylationData) > 0){
       regions <- NULL
       for(i in 1:length(methylationData)){
         if(is.null(regions)){
@@ -235,16 +232,15 @@ getWholeChromosomes <- function(methylationData){
           regions <- union(regions, getWholeChromosomes(methylationData[[i]]))
         }
       }
-    } else if(typeof(methylationData) == "S4" & class(methylationData)[1] == "GRanges"){
+    } else if(is(methylationData, "GRanges")){
       regions <- getWholeChromosomes(methylationData)
     }
   }
-    
+
   .stopIfNotAll(c(!is.null(regions),
-                  typeof(regions) == "S4",
-                  class(regions)[1] == "GRanges"), 
+                  is(regions, "GRanges")),
                 paste(" ",variableName," neads to be a GRanges object. If NULL, the DMRs are computed genome-wide.",sep=""))
-  
+
   if(!is.null(length)){
     .stopIfNotAll(c(is.numeric(length), length(regions) == length),
                   paste(" ",variableName," needs to contain exactly ", length," elements", sep=""))
@@ -256,29 +252,24 @@ getWholeChromosomes <- function(methylationData){
   return(regions)
 }
 
-#' Checks whether the passed parameter is a \code{GRangesList} object that 
+#' Checks whether the passed parameter is a \code{GRangesList} object that
 #' represents the methylation profile
 #'
 #' @title Validate methylation profile
-#' @param methylationProfile a \code{GRangesList} object 
+#' @param methylationProfile a \code{GRangesList} object
 #' (see \code{\link{computeMethylationProfile}}).
-#' 
+#'
 #' @author Radu Zabet
 .validateMethylationProfile <- function(methylationProfile){
-  .stopIfNotAll(c(!is.null(methylationProfile), 
-                  typeof(methylationProfile) == "S4",
-                  class(methylationProfile)[1] == "GRangesList"), 
+  .stopIfNotAll(c(!is.null(methylationProfile),
+                  is(methylationProfile, "GRangesList")),
                 " methylationProfile needs to be a GRangesList")
-  
-  
+
+
   for(i in 1:length(methylationProfile)){
-    .stopIfNotAll(c(!is.null(methylationProfile[[i]]), 
-                    typeof(methylationProfile[[i]]) == "S4",
-                    class(methylationProfile[[i]])[1] == "GRanges"), 
-                  paste(" element ",i," of the methylationProfile is not a GRanges object", sep=""))
-    .stopIfNotAll(c(ncol(mcols(methylationProfile[[i]])) == 4, 
-                    length(methylationProfile[[i]]) > 0), 
+    .stopIfNotAll(c(ncol(mcols(methylationProfile[[i]])) == 4,
+                    length(methylationProfile[[i]]) > 0),
                   paste(" element ",i," of the methylationProfile is not a GRanges object with four metadata columns (see computeMethylationProfile function).", sep=""))
   }
-  
+
 }
