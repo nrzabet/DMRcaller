@@ -1,2 +1,6 @@
+Version 1.11.1:
+    Added functions detect DMRs from biological replicates (beta regression)
+    Added functions to compute/plot spatial correlation of methylation level
+    Added function to extract GC content (useful for NOME-seq)
 Version 1.0:
     Initial release of the package

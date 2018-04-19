@@ -22,7 +22,7 @@
 #' @return a logical number whether the variable x is an integer or not
 #'
 #' @author Radu Zabet
-.isInteger <- function(x, positive =FALSE){
+.isInteger <- function(x, positive = FALSE){
   isInteger <- TRUE
   if (is.null(x)){
     isInteger <- FALSE
@@ -53,7 +53,8 @@
 .printGenomicRanges <- function(gr){
 
   .stopIfNotAll(c(!is.null(gr),
-                  is(gr, "GRanges")),
+                  typeof(gr) == "S4",
+                  class(gr)[1] == "GRanges"),
                 " gr is a GenomicRanges object");
   result=c();
   for(index in 1:length(gr)){
@@ -137,17 +138,46 @@ getWholeChromosomes <- function(methylationData){
 #'
 #' @title Validate methylation data
 #' @param methylationData the methylation data stored as a \code{\link{GRanges}}
-#' object with six metadata columns (see \code{\link{methylationData}}).
+#' object containing all the replicates.
 #'
-#' @author Radu Zabet
-.validateMethylationData <- function(methylationData, variableName="methylationData"){
+#' @author Alessandro Pio Greco and Nicolae Radu Zabet
+.validateMethylationData <- function(methylationData, variableName="methylationData",
+                                     manageDuplicates = "mean"){
   .stopIfNotAll(c(!is.null(methylationData),
-                  is(methylationData, "GRanges")),
+                  typeof(methylationData) == "S4",
+                  class(methylationData)[1] == "GRanges"),
                 " methylationData needs to be a GRanges object")
-  .stopIfNotAll(c(ncol(mcols(methylationData)) == 4,
-                  length(methylationData) > 0),
-                paste(" ",variableName," needs to have four metadata columns see readBismark function", sep=""))
+  .stopIfNotAll(c(ncol(mcols(methylationData)[grepl("reads",
+                  names(mcols(methylationData)))])%%2 == 0,
+                  length(methylationData) > 0,
+                  any(grepl("context", names(mcols(methylationData)))) == TRUE,
+                  any(grepl("trinucleotide_context", names(mcols(methylationData)))) == TRUE),
+                paste(" ",variableName," the object does not contain the correct metadata columns", sep=" "))
+  if(any(duplicated(methylationData)) == TRUE){
+    indexesDuplicated <- which(ranges(methylationData) ==
+                               ranges(methylationData)[duplicated(methylationData)])
+    checkMetadataEqual <- all(mcols(methylationData[indexesDuplicated[1:(length(indexesDuplicated)/2)]]) ==
+                                mcols(methylationData[indexesDuplicated[((length(indexesDuplicated)/2)+1):
+                                                              length(indexesDuplicated)]]))
+    if(all(checkMetadataEqual) == TRUE){
+      if(manageDuplicates == "mean"){
+      cat("Cytosines that were duplicated and had the different metadata columns were merged by meaning readings \n")
 
+
+    } else if(manageDuplicates == "sum"){
+
+
+    } else if(manageDuplicates == "discard"){
+      cat("Cytosines that were duplicated (",indexesDuplicated, ") and had the same metadata columns were discarded \n", sep = " ")
+      methylationData <- unique(methylationData)
+    }
+
+
+    } else{
+      stop(" context or trinucleotide context on duplicated cytosines (", indexesDuplicated, ") are not equal")
+    }
+
+  }
 }
 
 
@@ -160,7 +190,8 @@ getWholeChromosomes <- function(methylationData){
 #' @author Radu Zabet
 .validateMethylationDataList <- function(methylationDataList){
   .stopIfNotAll(c(!is.null(methylationDataList),
-                  is(methylationDataList, "GRangesList"),
+                  typeof(methylationDataList) == "S4",
+                  class(methylationDataList)[1] == "GRangesList",
                   length(methylationDataList) > 0),
                 " methylationDataList needs to be a GRangesList object")
 
@@ -223,7 +254,7 @@ getWholeChromosomes <- function(methylationData){
 .validateGRanges <- function(regions, methylationData, length=NULL, generateGenomeWide=TRUE, variableName="regions", minLength=0){
 
   if(is.null(regions) & generateGenomeWide){
-    if(is(methylationData, "GRangesList") & length(methylationData) > 0){
+    if(typeof(methylationData) == "S4" & class(methylationData)[1] == "GRangesList" & length(methylationData) > 0){
       regions <- NULL
       for(i in 1:length(methylationData)){
         if(is.null(regions)){
@@ -232,13 +263,14 @@ getWholeChromosomes <- function(methylationData){
           regions <- union(regions, getWholeChromosomes(methylationData[[i]]))
         }
       }
-    } else if(is(methylationData, "GRanges")){
+    } else if(typeof(methylationData) == "S4" & class(methylationData)[1] == "GRanges"){
       regions <- getWholeChromosomes(methylationData)
     }
   }
 
   .stopIfNotAll(c(!is.null(regions),
-                  is(regions, "GRanges")),
+                  typeof(regions) == "S4",
+                  class(regions)[1] == "GRanges"),
                 paste(" ",variableName," neads to be a GRanges object. If NULL, the DMRs are computed genome-wide.",sep=""))
 
   if(!is.null(length)){
@@ -262,11 +294,16 @@ getWholeChromosomes <- function(methylationData){
 #' @author Radu Zabet
 .validateMethylationProfile <- function(methylationProfile){
   .stopIfNotAll(c(!is.null(methylationProfile),
-                  is(methylationProfile, "GRangesList")),
+                  typeof(methylationProfile) == "S4",
+                  class(methylationProfile)[1] == "GRangesList"),
                 " methylationProfile needs to be a GRangesList")
 
 
   for(i in 1:length(methylationProfile)){
+    .stopIfNotAll(c(!is.null(methylationProfile[[i]]),
+                    typeof(methylationProfile[[i]]) == "S4",
+                    class(methylationProfile[[i]])[1] == "GRanges"),
+                  paste(" element ",i," of the methylationProfile is not a GRanges object", sep=""))
     .stopIfNotAll(c(ncol(mcols(methylationProfile[[i]])) == 4,
                     length(methylationProfile[[i]]) > 0),
                   paste(" element ",i," of the methylationProfile is not a GRanges object with four metadata columns (see computeMethylationProfile function).", sep=""))
