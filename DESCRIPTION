@@ -7,7 +7,8 @@ Authors@R: c(person(given="Nicolae Radu", family="Zabet", role =
         c("aut","cre"), email = "n.r.zabet@gen.cam.ac.uk"),
         person(given="Jonathan", family="Tsang", role = "aut", email =
         "jmft2@cam.ac.uk"), person(given="Alessandro", family="Greco",
-        role = "aut", email = "apgrec@essex.ac.uk"))
+        role = "aut", email = "apgrec@essex.ac.uk"), person(given="Ryan",
+        family="Merritt", role = "aut", email = "rmerri@essex.ac.uk"))
 Author: Nicolae Radu Zabet <n.r.zabet@gen.cam.ac.uk>, Jonathan
         Michael Foonlan Tsang <jmft2@cam.ac.uk>, Alessandro
         Pio Greco <apgrec@essex.ac.uk> and Ryan Merritt <rmerri@essex.ac.uk>
