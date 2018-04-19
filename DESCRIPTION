@@ -9,8 +9,8 @@ Authors@R: c(person(given="Nicolae Radu", family="Zabet", role =
         "jmft2@cam.ac.uk"), person(given="Alessandro", family="Greco",
         role = "aut", email = "apgrec@essex.ac.uk"))
 Author: Nicolae Radu Zabet <n.r.zabet@gen.cam.ac.uk>, Jonathan
-        Michael Foonlan Tsang <jmft2@cam.ac.uk> and Alessandro
-        Pio Greco <apgrec@essex.ac.uk>
+        Michael Foonlan Tsang <jmft2@cam.ac.uk>, Alessandro
+        Pio Greco <apgrec@essex.ac.uk> and Ryan Merritt <rmerri@essex.ac.uk>
 Maintainer: Nicolae Radu Zabet <n.r.zabet@gen.cam.ac.uk>
 Description: Uses Bisulfite sequencing data in two conditions and
         identifies differentially methylated regions between the
