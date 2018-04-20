@@ -22,7 +22,7 @@ License: GPL-3
 LazyLoad: yes
 Imports: parallel, Rcpp, RcppRoll, betareg, grDevices, graphics, methods, stats,
         utils
-Depends: R (>= 3.3), GenomicRanges, IRanges, S4Vectors
+Depends: R (>= 3.5), GenomicRanges, IRanges, S4Vectors
 Suggests: knitr, RUnit, BiocGenerics
 biocViews: DifferentialMethylation, DNAMethylation, Software,
         Sequencing, Coverage
