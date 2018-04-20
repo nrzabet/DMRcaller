@@ -240,7 +240,7 @@ Methylation levels are often spatially correlated and some methods to detect DMR
 <<correlation_plot, fig.width=6,fig.height=5,out.width='0.6\\textwidth', message=FALSE,cache=FALSE>>=
 # compute the spatial correlation of methylation levels
 plotMethylationDataSpatialCorrelation(methylationDataList[["WT"]],
-                            distances = c(1,10,100,1000,10000), regions = NULL,
+                            distances = c(1,100,10000), regions = NULL,
                             conditionsNames = c("WT"),
                             context = c("CG"),
                             labels = LETTERS, col = NULL,
@@ -499,22 +499,23 @@ The DMRs are computed using the function \Rfun{computeDMRsReplicates}, which use
 condition <- c("a", "a", "b", "b")
 
 # computing DMRs using the neighbourhood method
-DMRsReplicatesNeighbourhood <- computeDMRsReplicates(methylationData = methylationData,
-                                                     condition = condition,
-                                                     regions = NULL,
-                                                     context = "CHH",
-                                                     method = "neighbourhood",
-                                                     test = "betareg",
-                                                     pseudocountM = 1,
-                                                     pseudocountN = 2,
-                                                     pValueThreshold = 0.01,
-                                                     minCytosinesCount = 4,
-                                                     minProportionDifference = 0.4,
-                                                     minGap = 200,
-                                                     minSize = 50,
-                                                     minReadsPerCytosine = 4,
-                                                     cores = 1)
-print(DMRsReplicatesNeighbourhood)
+DMRsReplicatesBins <- computeDMRsReplicates(methylationData = methylationData,
+                                            condition = condition,
+                                            regions = NULL,
+                                            context = "CG",
+                                            method = "bins",
+                                            binSize = 100,
+                                            test = "betareg",
+                                            pseudocountM = 1,
+                                            pseudocountN = 2,
+                                            pValueThreshold = 0.01,
+                                            minCytosinesCount = 4,
+                                            minProportionDifference = 0.4,
+                                            minGap = 0,
+                                            minSize = 50,
+                                            minReadsPerCytosine = 4,
+                                            cores = 1)
+print(DMRsReplicatesBins)
 @
 
 \section{Session information}

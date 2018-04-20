@@ -161,7 +161,7 @@ joinReplicates = function(methylationData1, methylationData2, usecomplete = FALS
 #' for all the replicates.
 #' @param condition a vector of strings indicating the conditions for each
 #' sample in \code{methylationData}. Two different values are allowed
-#' (for the two conditions). 
+#' (for the two conditions).
 #' @param regions a \code{\link{GRanges}} object with the regions where to
 #' compute the DMRs. If \code{NULL}, the DMRs are computed genome-wide.
 #' @param context the context in which the DMRs are computed (\code{"CG"},
@@ -675,9 +675,23 @@ computeDMRsReplicates <- function(methylationData,
 #' @param cores the number of cores to be used to fit the model.
 #' @return The adjusted p-values of the statistical test.
 #' @author  Nicolae Radu Zabet and Alessandro Pio Greco
-.computeaAjustedPValuesInDMRsReplicates <- function(methylationData, DMRs, condition, cores, indexM, indexN, pseudocountM, pseudocountN){
-  M <- sapply(DMRs, .computeProportionsInDMRs, methylationData = methylationData, col_indexes = indexM)
-  N <- sapply(DMRs, .computeProportionsInDMRs, methylationData = methylationData, col_indexes = indexN)
+.computeaAjustedPValuesInDMRsReplicates <- function(methylationData,
+                                                    DMRs,
+                                                    condition,
+                                                    cores,
+                                                    indexM,
+                                                    indexN,
+                                                    pseudocountM,
+                                                    pseudocountN){
+
+  M <- sapply(1:length(DMRs),
+              function(x){.computeProportionsInDMRs(DMRs[x],
+                                                    methylationData = methylationData,
+                                                    col_indexes = indexM)})
+  N <- sapply(1:length(DMRs),
+              function(x){.computeProportionsInDMRs(DMRs[x],
+                                                    methylationData = methylationData,
+                                                    col_indexes = indexN)})
 
   proportions <- (M + pseudocountM) / (N + pseudocountN)
   proportions <- t(proportions)

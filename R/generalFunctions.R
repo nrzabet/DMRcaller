@@ -191,7 +191,7 @@ getWholeChromosomes <- function(methylationData){
 .validateMethylationDataList <- function(methylationDataList){
   .stopIfNotAll(c(!is.null(methylationDataList),
                   typeof(methylationDataList) == "S4",
-                  class(methylationDataList)[1] == "GRangesList",
+                  length(grep("GRangesList",class(methylationDataList))) > 0,
                   length(methylationDataList) > 0),
                 " methylationDataList needs to be a GRangesList object")
 
@@ -254,7 +254,7 @@ getWholeChromosomes <- function(methylationData){
 .validateGRanges <- function(regions, methylationData, length=NULL, generateGenomeWide=TRUE, variableName="regions", minLength=0){
 
   if(is.null(regions) & generateGenomeWide){
-    if(typeof(methylationData) == "S4" & class(methylationData)[1] == "GRangesList" & length(methylationData) > 0){
+    if(typeof(methylationData) == "S4" & length(grep("GRangesList",class(methylationData))) > 0 & length(methylationData) > 0){
       regions <- NULL
       for(i in 1:length(methylationData)){
         if(is.null(regions)){
@@ -293,9 +293,10 @@ getWholeChromosomes <- function(methylationData){
 #'
 #' @author Radu Zabet
 .validateMethylationProfile <- function(methylationProfile){
+  print(class(methylationProfile))
   .stopIfNotAll(c(!is.null(methylationProfile),
                   typeof(methylationProfile) == "S4",
-                  class(methylationProfile)[1] == "GRangesList"),
+                  length(grep("GRangesList",class(methylationProfile))) > 0 ),
                 " methylationProfile needs to be a GRangesList")
 
 
