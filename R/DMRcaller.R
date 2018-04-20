@@ -132,7 +132,7 @@
 #'
 #' # plot the correlation of methylation levels as a function of distance
 #' plotMethylationDataSpatialCorrelation(methylationDataList[["WT"]],
-#'                            distances = c(1,15), regions = NULL,
+#'                            distances = c(1,5,10,15), regions = NULL,
 #'                            conditionsNames = c("WT","met1-3"),
 #'                            context = c("CG"),
 #'                            labels = LETTERS, col = NULL,
@@ -229,8 +229,6 @@
 #' plotOverlapProfile(GRangesList("Chr3"=hotspotsHypo),
 #'                    GRangesList("Chr3"=hotspotsHyper),
 #'                    names=c("loss", "gain"), title="CG methylation")
-#' }
-#'
 #' # loading synthetic data
 #' data("syntheticDataReplicates")
 #'
@@ -238,12 +236,11 @@
 #' condition <- c("a", "a", "b", "b")
 #'
 #' # computing DMRs using the neighbourhood method
-#' DMRsReplicatesBins <- computeDMRsReplicates(methylationData = methylationData,
+#' DMRsReplicatesNeighbourhood <- computeDMRsReplicates(methylationData = methylationData,
 #'                                                      condition = condition,
 #'                                                      regions = NULL,
 #'                                                      context = "CHH",
-#'                                                      method = "bins",
-#'                                                      binSize = 100,
+#'                                                      method = "neighbourhood",
 #'                                                      test = "betareg",
 #'                                                      pseudocountM = 1,
 #'                                                      pseudocountN = 2,
@@ -254,6 +251,8 @@
 #'                                                      minSize = 50,
 #'                                                      minReadsPerCytosine = 4,
 #'                                                      cores = 1)
+#' }
+#'
 #'
 #' @seealso See \code{vignette("rd", package = "DMRcaller")} for an overview
 #' of the package.
