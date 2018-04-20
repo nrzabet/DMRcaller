@@ -132,7 +132,7 @@
 #'
 #' # plot the correlation of methylation levels as a function of distance
 #' plotMethylationDataSpatialCorrelation(methylationDataList[["WT"]],
-#'                            distances = c(1,5,10,15), regions = NULL,
+#'                            distances = c(1,15), regions = NULL,
 #'                            conditionsNames = c("WT","met1-3"),
 #'                            context = c("CG"),
 #'                            labels = LETTERS, col = NULL,
@@ -238,11 +238,12 @@
 #' condition <- c("a", "a", "b", "b")
 #'
 #' # computing DMRs using the neighbourhood method
-#' DMRsReplicatesNeighbourhood <- computeDMRsReplicates(methylationData = methylationData,
+#' DMRsReplicatesBins <- computeDMRsReplicates(methylationData = methylationData,
 #'                                                      condition = condition,
 #'                                                      regions = NULL,
 #'                                                      context = "CHH",
-#'                                                      method = "neighbourhood",
+#'                                                      method = "bins",
+#'                                                      binSize = 100,
 #'                                                      test = "betareg",
 #'                                                      pseudocountM = 1,
 #'                                                      pseudocountN = 2,
