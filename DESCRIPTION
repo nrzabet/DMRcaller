@@ -1,7 +1,7 @@
 Package: DMRcaller
 Type: Package
 Title: Differentially Methylated Regions caller
-Version: 1.12.0
+Version: 1.13.0
 Date: 2018-04-19
 Authors@R: c(person(given="Nicolae Radu", family="Zabet", role =
         c("aut","cre"), email = "n.r.zabet@gen.cam.ac.uk"),
