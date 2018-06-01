@@ -2,7 +2,7 @@ Package: DMRcaller
 Type: Package
 Title: Differentially Methylated Regions caller
 <<<<<<< HEAD
-Version: 1.12.0
+Version: 1.12.1
 =======
 Version: 1.13.1
 >>>>>>> ca459c0... bug fix: error with betareg when less than 3 samples are used
