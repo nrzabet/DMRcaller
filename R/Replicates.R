@@ -31,7 +31,7 @@
 #' @author Alessandro Pio Greco and Nicolae Radu Zabet
 #'
 #' @export
-joinReplicates = function(methylationData1, methylationData2, usecomplete = FALSE){
+joinReplicates <- function(methylationData1, methylationData2, usecomplete = FALSE){
   cat("Validating objects \n")
   .validateMethylationData(methylationData1, "methylationData1")
   .validateMethylationData(methylationData2, "methylationData2")
@@ -374,36 +374,36 @@ computeDMRsReplicates <- function(methylationData,
                                                 minReadsPerCytosine = 4,
                                                 cores = 1){
   condition <- as.factor(condition)
-
+  
   regions <- reduce(regions)
   regionsList <- .splitGRangesEqualy(regions, cores)
-
+  
   # extract the methylation data in the correct context
   cat("Extract methylation in the corresponding context \n")
   localContextMethylationData <- methylationData[methylationData$context%in%context]
   localContextMethylationData <- localContextMethylationData[queryHits(findOverlaps(
     localContextMethylationData, regions))]
-
-
+  
+  
   # create dataframe row wise with proportions
   m <- grep("readsM", names(mcols(localContextMethylationData)))
   n <- grep("readsN", names(mcols(localContextMethylationData)))
-
+  
   # inner loop function for parallel::mclapply
   .computeDMPsReplicatesNeighbourhoodLoop = function(i){
     computedDMPs <- GRanges()
     for(index in 1:length(regionsList[[i]])){
       cat("Computing DMRs \n")
       currentRegion <- regionsList[[i]][index]
-
+      
       overlapsCs <- findOverlaps(localContextMethylationData, currentRegion)
-
+      
       if(length(overlapsCs) > 0){
         localMethylationData <- localContextMethylationData[queryHits(overlapsCs)]
-
+        
         proportions <-proportions <- (as.matrix(mcols(localMethylationData)[,m]) + pseudocountM) /
           (as.matrix(mcols(localMethylationData)[,n]) + pseudocountN)
-
+        
         DMPs <- GRanges()
         if(length(localMethylationData) > 0){
           DMPs <- localMethylationData
@@ -424,7 +424,7 @@ computeDMRsReplicates <- function(methylationData,
           DMPs$sumReadsN2 >=minReadsPerCytosine
         DMPs <- DMPs[bufferIndex]
         strand(DMPs) <- "*"
-
+        
         # append current DMRs to the global list of DMRs
         if(length(computedDMPs) == 0){
           computedDMPs <- DMPs
@@ -435,8 +435,8 @@ computeDMRsReplicates <- function(methylationData,
     }
     return(computedDMPs)
   }
-
-
+  
+  
   # compute the DMRs
   if(cores > 1){
     cat("Compute the DMRs using ", cores, "cores\n")
@@ -444,11 +444,11 @@ computeDMRsReplicates <- function(methylationData,
   } else {
     computedDMPs <- lapply(1:length(regionsList), .computeDMPsReplicatesNeighbourhoodLoop)
   }
-
+  
   computedDMRs <- unlist(GRangesList(computedDMPs))
-
+  
   if(length(computedDMRs) > 0){
-
+    
     cat("Merge adjacent DMRs\n")
     computedDMRs <- computedDMRs[order(computedDMRs)]
     computedDMRs$pValue <- .computeaAjustedPValuesInDMRsReplicates(localContextMethylationData ,computedDMRs, condition, cores, m, n, pseudocountM, pseudocountN)
@@ -469,8 +469,8 @@ computeDMRsReplicates <- function(methylationData,
                                                 n = n,
                                                 cores = cores)
     }
-
-
+    
+    
     cat("Filter DMRs \n")
     if(length(computedDMRs) > 0){
       #remove small DMRs
@@ -483,16 +483,16 @@ computeDMRsReplicates <- function(methylationData,
           computedDMRs$pValue <- .computeaAjustedPValuesInDMRsReplicates(localContextMethylationData ,computedDMRs, condition, cores, m, n, pseudocountM, pseudocountN)
           computedDMRs$regionType <- rep("loss", length(computedDMRs))
           computedDMRs$regionType[which(computedDMRs$proportion1 < computedDMRs$proportion2)] <- "gain"
-
+          
         }
       }
-
+      
     }
   }
-
+  
   return(computedDMRs)
 }
-
+  
 #' This function computes the differentially methylated regions between replicates
 #' using the bins method.
 .computeDMRsReplicatesBins <- function(methylationData,
@@ -672,6 +672,8 @@ computeDMRsReplicates <- function(methylationData,
 }
 
 
+#https://stats.stackexchange.com/questions/220868/questionable-beta-regression-results
+#https://stats.stackexchange.com/questions/89999/how-to-replicate-statas-robust-binomial-glm-for-proportion-data-in-r/205040#205040
 .suitableForBetaReg <- function(y){
   if(any(is.na(y))){
     return(FALSE)
@@ -965,11 +967,13 @@ computeDMRsReplicates <- function(methylationData,
         start(localDMR) <- min(start(DMRs))
         localDMR <- .analyseReadsInsideRegionsReplicates(methylationData, localDMR, condition, m, n)
         localDMR$pValue <- .computeaAjustedPValuesInDMRsReplicates(methylationData, localDMR, condition, cores, m, n, pseudocountM, pseudocountN)
-        if(abs(localDMR$proportion1 - localDMR$proportion2) >= minProportionDifference &
-           localDMR$pValue <= pValueThreshold &
-           (localDMR$sumReadsN1 / localDMR$cytosinesCount) >= minReadsPerCytosine &
-           (localDMR$sumReadsN2 / localDMR$cytosinesCount) >= minReadsPerCytosine){
-          DMRs <- localDMR
+        if(!is.na(localDMR$pValue)){
+          if(abs(localDMR$proportion1 - localDMR$proportion2) >= minProportionDifference &
+             localDMR$pValue <= pValueThreshold &
+             (localDMR$sumReadsN1 / localDMR$cytosinesCount) >= minReadsPerCytosine &
+             (localDMR$sumReadsN2 / localDMR$cytosinesCount) >= minReadsPerCytosine){
+            DMRs <- localDMR
+          }
         }
       }
     }
@@ -1040,21 +1044,25 @@ computeDMRsReplicates <- function(methylationData,
                                       m = m,
                                       n = n,
                                       cores = 1){
+  
+  
+  
   overlaps <- countOverlaps(DMRs, DMRs, maxgap = minGap, ignore.strand = TRUE)
   notToJoin <- DMRs[overlaps == 1]
 
-  DMRs <- DMRs[overlaps > 1]
+  DMRsToJoin <- DMRs[overlaps > 1]
 
 
-  if(length(DMRs) > 0){
-    overlaps <- findOverlaps(DMRs,
-                             reduce(DMRs, min.gapwidth = minGap,
+  if(length(DMRsToJoin) > 0){
+    overlaps <- findOverlaps(DMRsToJoin,
+                             reduce(DMRsToJoin, min.gapwidth = minGap,
                                     ignore.strand=TRUE),
                              maxgap = minGap, ignore.strand = TRUE)
-    DMRsList <- IRanges::splitAsList(DMRs[queryHits(overlaps)],
+    DMRsList <- IRanges::splitAsList(DMRsToJoin[queryHits(overlaps)],
                                      subjectHits(overlaps))
 
 
+    
     if(cores > 1){
       bufferDMRs <- parallel::mclapply(1:length(DMRsList), function(i){ .getLongestDMRsReplicates(DMRsList[[i]],
                                                                                                   minGap = minGap,
@@ -1091,14 +1099,14 @@ computeDMRsReplicates <- function(methylationData,
       }
     }
 
-    DMRs <- c(bufferDMRs, notToJoin)
+    joinedDMRs <- c(bufferDMRs, notToJoin)
   } else{
-    DMRs <- notToJoin
+    joinedDMRs <- notToJoin
   }
 
-  DMRs <- DMRs[order(DMRs)]
+  joinedDMRs <- joinedDMRs[order(joinedDMRs)]
 
-  return(DMRs)
+  return(joinedDMRs)
 }
 
 .mergeDMRsIterativelyReplicates <- function(DMRs,
