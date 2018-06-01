@@ -374,36 +374,36 @@ computeDMRsReplicates <- function(methylationData,
                                                 minReadsPerCytosine = 4,
                                                 cores = 1){
   condition <- as.factor(condition)
-  
+
   regions <- reduce(regions)
   regionsList <- .splitGRangesEqualy(regions, cores)
-  
+
   # extract the methylation data in the correct context
   cat("Extract methylation in the corresponding context \n")
   localContextMethylationData <- methylationData[methylationData$context%in%context]
   localContextMethylationData <- localContextMethylationData[queryHits(findOverlaps(
     localContextMethylationData, regions))]
-  
-  
+
+
   # create dataframe row wise with proportions
   m <- grep("readsM", names(mcols(localContextMethylationData)))
   n <- grep("readsN", names(mcols(localContextMethylationData)))
-  
+
   # inner loop function for parallel::mclapply
   .computeDMPsReplicatesNeighbourhoodLoop = function(i){
     computedDMPs <- GRanges()
     for(index in 1:length(regionsList[[i]])){
       cat("Computing DMRs \n")
       currentRegion <- regionsList[[i]][index]
-      
+
       overlapsCs <- findOverlaps(localContextMethylationData, currentRegion)
-      
+
       if(length(overlapsCs) > 0){
         localMethylationData <- localContextMethylationData[queryHits(overlapsCs)]
-        
+
         proportions <-proportions <- (as.matrix(mcols(localMethylationData)[,m]) + pseudocountM) /
           (as.matrix(mcols(localMethylationData)[,n]) + pseudocountN)
-        
+
         DMPs <- GRanges()
         if(length(localMethylationData) > 0){
           DMPs <- localMethylationData
@@ -424,7 +424,7 @@ computeDMRsReplicates <- function(methylationData,
           DMPs$sumReadsN2 >=minReadsPerCytosine
         DMPs <- DMPs[bufferIndex]
         strand(DMPs) <- "*"
-        
+
         # append current DMRs to the global list of DMRs
         if(length(computedDMPs) == 0){
           computedDMPs <- DMPs
@@ -435,8 +435,8 @@ computeDMRsReplicates <- function(methylationData,
     }
     return(computedDMPs)
   }
-  
-  
+
+
   # compute the DMRs
   if(cores > 1){
     cat("Compute the DMRs using ", cores, "cores\n")
@@ -444,11 +444,11 @@ computeDMRsReplicates <- function(methylationData,
   } else {
     computedDMPs <- lapply(1:length(regionsList), .computeDMPsReplicatesNeighbourhoodLoop)
   }
-  
+
   computedDMRs <- unlist(GRangesList(computedDMPs))
-  
+
   if(length(computedDMRs) > 0){
-    
+
     cat("Merge adjacent DMRs\n")
     computedDMRs <- computedDMRs[order(computedDMRs)]
     computedDMRs$pValue <- .computeaAjustedPValuesInDMRsReplicates(localContextMethylationData ,computedDMRs, condition, cores, m, n, pseudocountM, pseudocountN)
@@ -469,8 +469,8 @@ computeDMRsReplicates <- function(methylationData,
                                                 n = n,
                                                 cores = cores)
     }
-    
-    
+
+
     cat("Filter DMRs \n")
     if(length(computedDMRs) > 0){
       #remove small DMRs
@@ -483,16 +483,16 @@ computeDMRsReplicates <- function(methylationData,
           computedDMRs$pValue <- .computeaAjustedPValuesInDMRsReplicates(localContextMethylationData ,computedDMRs, condition, cores, m, n, pseudocountM, pseudocountN)
           computedDMRs$regionType <- rep("loss", length(computedDMRs))
           computedDMRs$regionType[which(computedDMRs$proportion1 < computedDMRs$proportion2)] <- "gain"
-          
+
         }
       }
-      
+
     }
   }
-  
+
   return(computedDMRs)
 }
-  
+
 #' This function computes the differentially methylated regions between replicates
 #' using the bins method.
 .computeDMRsReplicatesBins <- function(methylationData,
@@ -672,8 +672,6 @@ computeDMRsReplicates <- function(methylationData,
 }
 
 
-#https://stats.stackexchange.com/questions/220868/questionable-beta-regression-results
-#https://stats.stackexchange.com/questions/89999/how-to-replicate-statas-robust-binomial-glm-for-proportion-data-in-r/205040#205040
 .suitableForBetaReg <- function(y){
   if(any(is.na(y))){
     return(FALSE)
