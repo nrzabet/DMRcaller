@@ -409,11 +409,11 @@ computeDMRsReplicates <- function(methylationData,
           DMPs <- localMethylationData
           DMPs$pValue <- .computeAdjuestedPValuesReplicates(proportions, condition, cores=1)
           DMPs <- DMPs[!is.na(DMPs$pValue)]
-          DMPs$sumReadsM1 <- apply(mcols(DMPs)[m[which(condition == levels(condition)[1])]],1,sum)
-          DMPs$sumReadsN1 <- apply(mcols(DMPs)[n[which(condition == levels(condition)[1])]],1,sum)
+          DMPs$sumReadsM1 <- apply(mcols(DMPs)[m[which(condition == unique(condition)[1])]],1,sum)
+          DMPs$sumReadsN1 <- apply(mcols(DMPs)[n[which(condition == unique(condition)[1])]],1,sum)
           DMPs$proportion1 <- DMPs$sumReadsM1 / DMPs$sumReadsN1
-          DMPs$sumReadsM2 <- apply(mcols(DMPs)[m[which(condition == levels(condition)[2])]],1,sum)
-          DMPs$sumReadsN2 <- apply(mcols(DMPs)[n[which(condition == levels(condition)[2])]],1,sum)
+          DMPs$sumReadsM2 <- apply(mcols(DMPs)[m[which(condition == unique(condition)[2])]],1,sum)
+          DMPs$sumReadsN2 <- apply(mcols(DMPs)[n[which(condition == unique(condition)[2])]],1,sum)
           DMPs$proportion2 <- DMPs$sumReadsM2 / DMPs$sumReadsN2
           DMPs$cytosinesCount <- 1
           DMPs$direction <- sign(DMPs$proportion2 - DMPs$proportion1)
@@ -547,6 +547,7 @@ computeDMRsReplicates <- function(methylationData,
         #bins <- .analyseReadsInsideRegions(localMethylationData, bins, context, cores)
         bins <- .analyseReadsInsideBinsReplicates(localMethylationData, bins, currentRegion, condition, pseudocountM, pseudocountN)
 
+
         cat("Filter the bins...\n")
         # Get rid of the bins with fewer than minCytosinesCount cytosines inside.
         bins  <- bins[bins$cytosinesCount >= minCytosinesCount]
@@ -568,10 +569,12 @@ computeDMRsReplicates <- function(methylationData,
           bins$context <- rep(paste(context, collapse = "_"), length(bins))
           bins$direction <- rep(NA, length(bins))
           bins$direction <- sign(bins$proportion2 - bins$proportion1)
+          # Select the crude list of DMRs
+          DMRs <- bins[!is.na(bins$direction) & (bins$direction == 1 | bins$direction == -1)]
+        } else{
+          DMRs <- bins
         }
 
-        # Select the crude list of DMRs
-        DMRs <- bins[!is.na(bins$direction) & (bins$direction == 1 | bins$direction == -1)]
 
         # append current DMRs to the global list of DMRs
         if(length(computedDMRs) == 0){
@@ -801,17 +804,19 @@ computeDMRsReplicates <- function(methylationData,
 #' @author Nicolae Radu Zabet and Alessandro Pio Greco
 .analyseReadsInsideBinsReplicates <- function(methylationData, bins, currentRegion,
                                               condition, pseudocountM, pseudocountN){
+  
+
   binSize <- min(unique(width(bins)))
   #Rcpp
   m <- grep("readsM", names(mcols(methylationData)))
   n <- grep("readsN", names(mcols(methylationData)))
-  readsM <- matrix(1:(length(bins)*length(m)), ncol = length(m))
+  readsM <- matrix(0, ncol = length(m), nrow=length(bins))
   for(i in 1:length(m)){
     test <- .movingSum(start(currentRegion), end(currentRegion), start(methylationData), mcols(methylationData)[[m[i]]], windowSize = binSize)
     readsM[,i] <- test[seq(1,length(test)-binSize, by=binSize)]
   }
 
-  readsN <- matrix(1:(length(bins)*length(n)), ncol = length(n))
+  readsN <- matrix(0, ncol = length(n), nrow=length(bins))
   for(i in 1:length(n)){
     test2 <- .movingSum(start(currentRegion), end(currentRegion), start(methylationData), mcols(methylationData)[[n[i]]], windowSize = binSize)
     readsN[,i] <- test2[seq(1,length(test)-binSize, by=binSize)]
@@ -821,59 +826,54 @@ computeDMRsReplicates <- function(methylationData,
   proportions <- as.data.frame(proportions)
   names_prop <- paste0("proportionsR", 1:ncol(proportions))
   colnames(proportions) <- names_prop
-
-  readsM1 <- matrix(rep(1:(end(currentRegion) - start(currentRegion)+1),2), ncol = 2)
-  for(i in 1:length(m[which(condition == levels(condition)[1])])){
-    readsM1[,i] <- .movingSum(start(currentRegion), end(currentRegion), start(methylationData), mcols(methylationData)[[m[i]]], windowSize = binSize)
-  }
-  # readsM1 <- .movingSum(start(currentRegion), end(currentRegion), start(methylationData), methylationData$readsM1, windowSize = binSize)
-  readsM1 <- apply(readsM1,1,sum)
-  sumReadsM1 <- readsM1[seq(1,length(readsM1)-binSize, by=binSize)]
-
-
-
-  readsN1 <- matrix(rep(1:(end(currentRegion) - start(currentRegion)+1),2), ncol = 2)
-  for(i in 1:length(n[which(condition == levels(condition)[1])])){
-    readsN1[,i] <- .movingSum(start(currentRegion), end(currentRegion), start(methylationData), mcols(methylationData)[[n[i]]], windowSize = binSize)
-  }
-  # readsM1 <- .movingSum(start(currentRegion), end(currentRegion), start(methylationData), methylationData$readsM1, windowSize = binSize)
-  readsN1 <- apply(readsN1,1,sum)
-  # readsN1 <- .movingSum(start(currentRegion), end(currentRegion), start(methylationData), methylationData$readsN1, windowSize = binSize)
-  sumReadsN1 <- readsN1[seq(1,length(readsN1)-binSize, by=binSize)]
-  proportion1 <- sumReadsM1/sumReadsN1
+  
+  m1 <- m[which(condition == unique(condition)[1])]
+  n1 <- n[which(condition == unique(condition)[1])]
+  m2 <- m[which(condition == unique(condition)[2])]
+  n2 <- n[which(condition == unique(condition)[2])]
+  
+  readsM1 <- readsM[,which(condition == unique(condition)[1])]
+  # readsM1 <- matrix(0, ncol = length(m1), nrow=length(bins))
+  # for(i in 1:length(m1)){
+  #   test <- .movingSum(start(currentRegion), end(currentRegion), start(methylationData), mcols(methylationData)[[m1[i]]], windowSize = binSize)
+  #   readsM1[,i] <- test[seq(1,length(test)-binSize, by=binSize)]
+  # }
+  sumReadsM1 <-  apply(readsM1,1,sum)
 
 
 
+  readsN1 <- readsN[,which(condition == unique(condition)[1])]
+  # readsN1 <- matrix(0, ncol = length(n1), nrow=length(bins))
+  # for(i in 1:length(n1)){
+  #   test <- .movingSum(start(currentRegion), end(currentRegion), start(methylationData), mcols(methylationData)[[n1[i]]], windowSize = binSize)
+  #   readsN1[,i] <- test[seq(1,length(test)-binSize, by=binSize)]
+  # }
+  sumReadsN1 <- apply(readsN1,1,sum)
+  proportion1 <- (sumReadsM1 + pseudocountM)/ (sumReadsN1 + pseudocountN)
 
-  readsM2 <- matrix(rep(1:(end(currentRegion) - start(currentRegion)+1),2), ncol = 2)
-  for(i in 1:length(m[which(condition == levels(condition)[2])])){
-    readsM2[,i] <- .movingSum(start(currentRegion), end(currentRegion), start(methylationData), mcols(methylationData)[[m[i]]], windowSize = binSize)
-  }
-  # readsM1 <- .movingSum(start(currentRegion), end(currentRegion), start(methylationData), methylationData$readsM1, windowSize = binSize)
-  readsM2 <- apply(readsM2,1,sum)
-  sumReadsM2 <- readsM2[seq(1,length(readsM2)-binSize, by=binSize)]
 
+  readsM2 <- readsM[,which(condition == unique(condition)[2])]
+  # readsM2 <- matrix(0, ncol = length(m2), nrow=length(bins))
+  # for(i in 1:length(m2)){
+  #   test <- .movingSum(start(currentRegion), end(currentRegion), start(methylationData), mcols(methylationData)[[m2[i]]], windowSize = binSize)
+  #   readsM2[,i] <- test[seq(1,length(test)-binSize, by=binSize)]
+  # }
+  sumReadsM2 <- apply(readsM2,1,sum)
 
+  readsN2 <- readsN[,which(condition == unique(condition)[2])]
+  # readsN2 <- matrix(0, ncol = length(n2), nrow=length(bins))
+  # for(i in 1:length(n2)){
+  #   test <- .movingSum(start(currentRegion), end(currentRegion), start(methylationData), mcols(methylationData)[[n2[i]]], windowSize = binSize)
+  #   readsN2[,i] <- test[seq(1,length(test)-binSize, by=binSize)]
+  # }
+  sumReadsN2 <- apply(readsN2,1,sum)
 
-  readsN2 <- matrix(rep(1:(end(currentRegion) - start(currentRegion)+1),2), ncol = 2)
-  for(i in 1:length(n[which(condition == levels(condition)[2])])){
-    readsN2[,i] <- .movingSum(start(currentRegion), end(currentRegion), start(methylationData), mcols(methylationData)[[n[i]]], windowSize = binSize)
-  }
-  # readsM1 <- .movingSum(start(currentRegion), end(currentRegion), start(methylationData), methylationData$readsM1, windowSize = binSize)
-  readsN2 <- apply(readsN2,1,sum)
-  # readsN1 <- .movingSum(start(currentRegion), end(currentRegion), start(methylationData), methylationData$readsN1, windowSize = binSize)
-  sumReadsN2 <- readsN1[seq(1,length(readsN2)-binSize, by=binSize)]
-  readsM2 <- .movingSum(start(currentRegion), end(currentRegion), start(methylationData), methylationData$readsM2, windowSize = binSize)
-  sumReadsM2 <- readsM2[seq(1,length(readsM2)-binSize, by=binSize)]
-
-  # readsN2 <- .movingSum(start(currentRegion), end(currentRegion), start(methylationData), methylationData$readsN2, windowSize = binSize)
-  # sumReadsN2 <- readsN2[seq(1,length(readsN2)-binSize, by=binSize)]
   #
-  proportion2 <- sumReadsM2/sumReadsN2
-
+  proportion2 <- (sumReadsM2 + pseudocountM)/ (sumReadsN2 + pseudocountN)
 
   cytosines <- .movingSum(start(currentRegion), end(currentRegion), start(methylationData), rep(1, length(start(methylationData))), windowSize = binSize)
   cytosinesCount <- cytosines[seq(1,length(cytosines)-binSize, by=binSize)]
+
 
   bins$sumReadsM1 <- sumReadsM1
   bins$sumReadsN1 <- sumReadsN1
@@ -925,10 +925,10 @@ computeDMRsReplicates <- function(methylationData,
   regions$cytosinesCount <- rep(0, times=length(regions))
 
   if(length(regionsIndexes) > 0){
-    regions$sumReadsM1[regionsIndexes] <- sum(apply(mcols(unlist(methylationDataContextList))[m[which(condition == levels(condition)[1])]],1,sum))
-    regions$sumReadsM2 <- sum(apply(mcols(unlist(methylationDataContextList))[m[which(condition == levels(condition)[2])]],1,sum))
-    regions$sumReadsN1 <- sum(apply(mcols(unlist(methylationDataContextList))[n[which(condition == levels(condition)[1])]],1,sum))
-    regions$sumReadsN2 <- sum(apply(mcols(unlist(methylationDataContextList))[n[which(condition == levels(condition)[2])]],1,sum))
+    regions$sumReadsM1[regionsIndexes] <- sum(apply(mcols(unlist(methylationDataContextList))[m[which(condition == unique(condition)[1])]],1,sum))
+    regions$sumReadsM2 <- sum(apply(mcols(unlist(methylationDataContextList))[m[which(condition == unique(condition)[2])]],1,sum))
+    regions$sumReadsN1 <- sum(apply(mcols(unlist(methylationDataContextList))[n[which(condition == unique(condition)[1])]],1,sum))
+    regions$sumReadsN2 <- sum(apply(mcols(unlist(methylationDataContextList))[n[which(condition == unique(condition)[2])]],1,sum))
     regions$cytosinesCount[regionsIndexes] <- sapply(methylationDataContextList,length)
 
     valid <- regions$cytosinesCount[regionsIndexes] > 0
