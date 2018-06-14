@@ -858,7 +858,11 @@ computeDMRsReplicates <- function(methylationData,
   #   test <- .movingSum(start(currentRegion), end(currentRegion), start(methylationData), mcols(methylationData)[[m2[i]]], windowSize = binSize)
   #   readsM2[,i] <- test[seq(1,length(test)-binSize, by=binSize)]
   # }
+<<<<<<< HEAD
   sumReadsM2 <- apply(readsM2,1,sum) 
+=======
+  sumReadsM2 <- apply(readsM2,1,sum)
+>>>>>>> c672fd1... solved bugs with bins replicates
 
   readsN2 <- readsN[,which(condition == unique(condition)[2])]
   # readsN2 <- matrix(0, ncol = length(n2), nrow=length(bins))
@@ -886,6 +890,7 @@ computeDMRsReplicates <- function(methylationData,
   return(bins)
 
 }
+
 
 #' Performs the analysis in all regions in a \code{\link{GRanges}} object
 #'
