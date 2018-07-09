@@ -1,0 +1,19 @@
+citHeader("To cite DMRcaller:")
+
+citEntry(entry="article",
+	author = "Catoni, Marco and Tsang, Jonathan MF and Greco, Alessandro P and Zabet, Nicolae Radu",
+	doi = "10.1093/nar/gky602",
+	journal = "Nucleic Acids Research",
+	pages = "",
+	pmc = "",
+	pmid = "",
+	title = "DMRcaller: a versatile R/Bioconductor package for detection and visualization of differentially methylated regions in CpG and non-CpG contexts",
+	volume = "",
+	year = "2018",
+	textVersion = paste("Marco Catoni, Jonathan MF Tsang, Alessandro P Greco, Nicolae Radu Zabet.",
+	 "DMRcaller: a versatile R/Bioconductor package for detection and visualization of differentially methylated regions in CpG and non-CpG contexts.",
+	 "Nucleic Acids Research, gky602, https://doi.org/10.1093/nar/gky602 (2018).")
+)
+
+citFooter("Thanks very much for using DMRcaller!,",
+          "we appreciate if you remember to cite it in your paper.")
