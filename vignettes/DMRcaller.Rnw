@@ -495,7 +495,7 @@ legend(x = "topleft", legend=c("Treatment 1", "Treatment 2", "Control 1",
 The DMRs are computed using the function \Rfun{computeDMRsReplicates}, which uses beta regression \citep{ferrari_2004} to detect differential methylation.
 <<computing biological replicates, fig.width=15,fig.height=5,out.width='0.95\\textwidth', message=FALSE,cache=FALSE>>=
 
-# loading the betareg library to allow using computeDMRsReplicates function
+# loading betareg library to allow using computeDMRsReplicates function
 library(betareg)
 
 # creating condition vector
