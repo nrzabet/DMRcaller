@@ -15,5 +15,5 @@ citEntry(entry="article",
 	 "Nucleic Acids Research, gky602, https://doi.org/10.1093/nar/gky602 (2018).")
 )
 
-citFooter("Thanks very much for using DMRcaller!,",
-          "we appreciate if you remember to cite it in your paper.")
+citFooter("Thanks very much for using DMRcaller!",
+          "We appreciate if you remember to cite it in your paper.")
