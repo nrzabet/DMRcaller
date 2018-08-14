@@ -418,12 +418,19 @@ computeDMRsReplicates <- function(methylationData,
           DMPs$cytosinesCount <- 1
           DMPs$direction <- sign(DMPs$proportion2 - DMPs$proportion1)
         }
-        bufferIndex <- DMPs$pValue < pValueThreshold &
-          abs(DMPs$proportion2 - DMPs$proportion1) >= minProportionDifference &
-          DMPs$sumReadsN1 >=minReadsPerCytosine &
-          DMPs$sumReadsN2 >=minReadsPerCytosine
-        DMPs <- DMPs[bufferIndex]
-        strand(DMPs) <- "*"
+        if(length(DMPs) > 0){
+          bufferIndex <- DMPs$pValue < pValueThreshold &
+            abs(DMPs$proportion2 - DMPs$proportion1) >= minProportionDifference &
+            DMPs$sumReadsN1 >=minReadsPerCytosine &
+            DMPs$sumReadsN2 >=minReadsPerCytosine
+          DMPs <- DMPs[bufferIndex]
+          strand(DMPs) <- "*"
+        }
+
+        if(is.null(DMPs)){
+          DMPs <- GRanges()
+        }
+
 
         # append current DMRs to the global list of DMRs
         if(length(computedDMPs) == 0){
@@ -575,6 +582,9 @@ computeDMRsReplicates <- function(methylationData,
           DMRs <- bins
         }
 
+        if(is.null(DMRs)){
+          DMRs <- GRanges()
+        }
 
         # append current DMRs to the global list of DMRs
         if(length(computedDMRs) == 0){
@@ -886,7 +896,6 @@ computeDMRsReplicates <- function(methylationData,
   return(bins)
 
 }
-
 
 #' Performs the analysis in all regions in a \code{\link{GRanges}} object
 #'
