@@ -16,8 +16,9 @@
 #' \dontrun{
 #' # load the genome sequence
 #' if(!require("BSgenome.Athaliana.TAIR.TAIR9", character.only = TRUE)){
-#'   source("https://bioconductor.org/biocLite.R")
-#'   biocLite("BSgenome.Athaliana.TAIR.TAIR9")
+#'   if (!requireNamespace("BiocManager", quietly=TRUE))
+    #'   install.packages("BiocManager")
+#'   BiocManager::install("BSgenome.Athaliana.TAIR.TAIR9")
 #' }
 #' library(BSgenome.Athaliana.TAIR.TAIR9)
 #' 
