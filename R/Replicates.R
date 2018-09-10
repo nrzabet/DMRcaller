@@ -452,48 +452,49 @@ computeDMRsReplicates <- function(methylationData,
     computedDMPs <- lapply(1:length(regionsList), .computeDMPsReplicatesNeighbourhoodLoop)
   }
 
-  computedDMRs <- unlist(GRangesList(computedDMPs))
-
+  computedDMRs <- GRanges()
+  computedDMPs <- subset(computedDMPs, !sapply(computedDMPs, is.null))
   if(length(computedDMRs) > 0){
-
-    cat("Merge adjacent DMRs\n")
-    computedDMRs <- computedDMRs[order(computedDMRs)]
-    computedDMRs$pValue <- .computeaAjustedPValuesInDMRsReplicates(localContextMethylationData ,computedDMRs, condition, cores, m, n, pseudocountM, pseudocountN)
-    cat("Merge DMRs iteratively\n")
-    # Get rid of small gaps between DMRs.
-    if(minGap > 0){
-      computedDMRs <- .smartMergeDMRsReplicates(computedDMRs,
-                                                minGap = minGap,
-                                                respectSigns = TRUE,
-                                                methylationData = localContextMethylationData,
-                                                minProportionDifference=minProportionDifference,
-                                                minReadsPerCytosine = minReadsPerCytosine,
-                                                pseudocountM = pseudocountM,
-                                                pseudocountN = pseudocountN,
-                                                pValueThreshold=pValueThreshold,
-                                                condition = condition,
-                                                m = m,
-                                                n = n,
-                                                cores = cores)
-    }
-
-
-    cat("Filter DMRs \n")
+    computedDMRs <- unlist(GRangesList(computedDMPs))
     if(length(computedDMRs) > 0){
-      #remove small DMRs
-      computedDMRs <- computedDMRs[width(computedDMRs) >= minSize]
-      if(length(computedDMRs) > 0){
-        #remove DMRs with few cytosines
-        computedDMRs <- computedDMRs[computedDMRs$cytosinesCount >= minCytosinesCount]
-        #recompute the adjusted p-values
-        if(length(computedDMRs) > 0){
-          computedDMRs$pValue <- .computeaAjustedPValuesInDMRsReplicates(localContextMethylationData ,computedDMRs, condition, cores, m, n, pseudocountM, pseudocountN)
-          computedDMRs$regionType <- rep("loss", length(computedDMRs))
-          computedDMRs$regionType[which(computedDMRs$proportion1 < computedDMRs$proportion2)] <- "gain"
-
-        }
+      cat("Merge adjacent DMRs\n")
+      computedDMRs <- computedDMRs[order(computedDMRs)]
+      computedDMRs$pValue <- .computeaAjustedPValuesInDMRsReplicates(localContextMethylationData ,computedDMRs, condition, cores, m, n, pseudocountM, pseudocountN)
+      cat("Merge DMRs iteratively\n")
+      # Get rid of small gaps between DMRs.
+      if(minGap > 0){
+        computedDMRs <- .smartMergeDMRsReplicates(computedDMRs,
+                                                  minGap = minGap,
+                                                  respectSigns = TRUE,
+                                                  methylationData = localContextMethylationData,
+                                                  minProportionDifference=minProportionDifference,
+                                                  minReadsPerCytosine = minReadsPerCytosine,
+                                                  pseudocountM = pseudocountM,
+                                                  pseudocountN = pseudocountN,
+                                                  pValueThreshold=pValueThreshold,
+                                                  condition = condition,
+                                                  m = m,
+                                                  n = n,
+                                                  cores = cores)
       }
 
+
+      cat("Filter DMRs \n")
+      if(length(computedDMRs) > 0){
+        #remove small DMRs
+        computedDMRs <- computedDMRs[width(computedDMRs) >= minSize]
+        if(length(computedDMRs) > 0){
+          #remove DMRs with few cytosines
+          computedDMRs <- computedDMRs[computedDMRs$cytosinesCount >= minCytosinesCount]
+          #recompute the adjusted p-values
+          if(length(computedDMRs) > 0){
+            computedDMRs$pValue <- .computeaAjustedPValuesInDMRsReplicates(localContextMethylationData ,computedDMRs, condition, cores, m, n, pseudocountM, pseudocountN)
+            computedDMRs$regionType <- rep("loss", length(computedDMRs))
+            computedDMRs$regionType[which(computedDMRs$proportion1 < computedDMRs$proportion2)] <- "gain"
+
+          }
+        }
+      }
     }
   }
 
@@ -604,49 +605,53 @@ computeDMRsReplicates <- function(methylationData,
   } else {
     computedDMRs <- lapply(1:length(regionsList), .computeDMRsReplicatesBinsLoop)
   }
-
-
-  computedDMRs <- unlist(GRangesList(computedDMRs))
-
+  computedDMRs <- subset(computedDMRs, !sapply(computedDMRs, is.null))
   if(length(computedDMRs) > 0){
+    computedDMRs <- unlist(GRangesList(computedDMRs))
 
-    cat("Merge adjacent DMRs\n")
-    computedDMRs <- computedDMRs[order(computedDMRs)]
-    computedDMRs$pValue <- .computeaAjustedPValuesInDMRsReplicates(localContextMethylationData ,computedDMRs, condition, cores, m, n, pseudocountM, pseudocountN)
-    cat("Merge DMRs iteratively\n")
-    # Get rid of small gaps between DMRs.
-    if(minGap > 0){
-      computedDMRs <- .smartMergeDMRsReplicates(computedDMRs,
-                                                minGap = minGap,
-                                                respectSigns = TRUE,
-                                                methylationData = localContextMethylationData,
-                                                minProportionDifference=minProportionDifference,
-                                                minReadsPerCytosine = minReadsPerCytosine,
-                                                pseudocountM = pseudocountM,
-                                                pseudocountN = pseudocountN,
-                                                pValueThreshold=pValueThreshold,
-                                                condition = condition,
-                                                m = m,
-                                                n = n,
-                                                cores = cores)
-    }
 
-    cat("Filter DMRs \n")
     if(length(computedDMRs) > 0){
-      #remove small DMRs
-      computedDMRs <- computedDMRs[width(computedDMRs) >= minSize]
 
+      cat("Merge adjacent DMRs\n")
+      computedDMRs <- computedDMRs[order(computedDMRs)]
+      computedDMRs$pValue <- .computeaAjustedPValuesInDMRsReplicates(localContextMethylationData ,computedDMRs, condition, cores, m, n, pseudocountM, pseudocountN)
+      cat("Merge DMRs iteratively\n")
+      # Get rid of small gaps between DMRs.
+      if(minGap > 0){
+        computedDMRs <- .smartMergeDMRsReplicates(computedDMRs,
+                                                  minGap = minGap,
+                                                  respectSigns = TRUE,
+                                                  methylationData = localContextMethylationData,
+                                                  minProportionDifference=minProportionDifference,
+                                                  minReadsPerCytosine = minReadsPerCytosine,
+                                                  pseudocountM = pseudocountM,
+                                                  pseudocountN = pseudocountN,
+                                                  pValueThreshold=pValueThreshold,
+                                                  condition = condition,
+                                                  m = m,
+                                                  n = n,
+                                                  cores = cores)
+      }
+
+      cat("Filter DMRs \n")
       if(length(computedDMRs) > 0){
-        #remove DMRs with few cytosines
-        computedDMRs <- computedDMRs[computedDMRs$cytosinesCount >= minCytosinesCount]
-        #recompute the adjusted p-values
+        #remove small DMRs
+        computedDMRs <- computedDMRs[width(computedDMRs) >= minSize]
+
         if(length(computedDMRs) > 0){
-          computedDMRs$pValue <- .computeaAjustedPValuesInDMRsReplicates(localContextMethylationData ,computedDMRs, condition, cores, m, n, pseudocountM, pseudocountN)
-          computedDMRs$regionType <- rep("loss", length(computedDMRs))
-          computedDMRs$regionType[which(computedDMRs$proportion1 < computedDMRs$proportion2)] <- "gain"
+          #remove DMRs with few cytosines
+          computedDMRs <- computedDMRs[computedDMRs$cytosinesCount >= minCytosinesCount]
+          #recompute the adjusted p-values
+          if(length(computedDMRs) > 0){
+            computedDMRs$pValue <- .computeaAjustedPValuesInDMRsReplicates(localContextMethylationData ,computedDMRs, condition, cores, m, n, pseudocountM, pseudocountN)
+            computedDMRs$regionType <- rep("loss", length(computedDMRs))
+            computedDMRs$regionType[which(computedDMRs$proportion1 < computedDMRs$proportion2)] <- "gain"
+          }
         }
       }
     }
+  } else{
+    computedDMRs <- GRanges()
   }
   return(computedDMRs)
 }
