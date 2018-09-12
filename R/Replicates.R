@@ -452,10 +452,10 @@ computeDMRsReplicates <- function(methylationData,
     computedDMPs <- lapply(1:length(regionsList), .computeDMPsReplicatesNeighbourhoodLoop)
   }
 
-  computedDMRs <- GRanges()
-  computedDMPs <- subset(computedDMPs, !sapply(computedDMPs, is.null))
+ computedDMRs <- GRanges()
+  computedDMRs <- subset(computedDMPs, !sapply(computedDMPs, is.null))
   if(length(computedDMRs) > 0){
-    computedDMRs <- unlist(GRangesList(computedDMPs))
+    computedDMRs <- unlist(GRangesList(computedDMRs))
     if(length(computedDMRs) > 0){
       cat("Merge adjacent DMRs\n")
       computedDMRs <- computedDMRs[order(computedDMRs)]
