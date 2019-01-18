@@ -409,14 +409,16 @@ computeDMRsReplicates <- function(methylationData,
           DMPs <- localMethylationData
           DMPs$pValue <- .computeAdjuestedPValuesReplicates(proportions, condition, cores=1)
           DMPs <- DMPs[!is.na(DMPs$pValue)]
-          DMPs$sumReadsM1 <- apply(mcols(DMPs)[m[which(condition == unique(condition)[1])]],1,sum)
-          DMPs$sumReadsN1 <- apply(mcols(DMPs)[n[which(condition == unique(condition)[1])]],1,sum)
-          DMPs$proportion1 <- DMPs$sumReadsM1 / DMPs$sumReadsN1
-          DMPs$sumReadsM2 <- apply(mcols(DMPs)[m[which(condition == unique(condition)[2])]],1,sum)
-          DMPs$sumReadsN2 <- apply(mcols(DMPs)[n[which(condition == unique(condition)[2])]],1,sum)
-          DMPs$proportion2 <- DMPs$sumReadsM2 / DMPs$sumReadsN2
-          DMPs$cytosinesCount <- 1
-          DMPs$direction <- sign(DMPs$proportion2 - DMPs$proportion1)
+          if(length(DMPs) > 0){
+            DMPs$sumReadsM1 <- apply(mcols(DMPs)[m[which(condition == unique(condition)[1])]],1,sum)
+            DMPs$sumReadsN1 <- apply(mcols(DMPs)[n[which(condition == unique(condition)[1])]],1,sum)
+            DMPs$proportion1 <- DMPs$sumReadsM1 / DMPs$sumReadsN1
+            DMPs$sumReadsM2 <- apply(mcols(DMPs)[m[which(condition == unique(condition)[2])]],1,sum)
+            DMPs$sumReadsN2 <- apply(mcols(DMPs)[n[which(condition == unique(condition)[2])]],1,sum)
+            DMPs$proportion2 <- DMPs$sumReadsM2 / DMPs$sumReadsN2
+            DMPs$cytosinesCount <- 1
+            DMPs$direction <- sign(DMPs$proportion2 - DMPs$proportion1)
+          }
         }
         if(length(DMPs) > 0){
           bufferIndex <- DMPs$pValue < pValueThreshold &
@@ -574,11 +576,13 @@ computeDMRsReplicates <- function(methylationData,
           pValue <- .computeAdjuestedPValuesReplicates(proportions, condition, cores)
           mcols(bins)[grep("proportionsR", names(mcols(bins)))] <- NULL
           bins <- bins[!is.na(pValue) & pValue < pValueThreshold ]
-          bins$context <- rep(paste(context, collapse = "_"), length(bins))
-          bins$direction <- rep(NA, length(bins))
-          bins$direction <- sign(bins$proportion2 - bins$proportion1)
-          # Select the crude list of DMRs
-          DMRs <- bins[!is.na(bins$direction) & (bins$direction == 1 | bins$direction == -1)]
+          if(length(bins) > 0){
+            bins$context <- rep(paste(context, collapse = "_"), length(bins))
+            bins$direction <- rep(NA, length(bins))
+            bins$direction <- sign(bins$proportion2 - bins$proportion1)
+            # Select the crude list of DMRs
+            DMRs <- bins[!is.na(bins$direction) & (bins$direction == 1 | bins$direction == -1)]
+          }
         } else{
           DMRs <- bins
         }
