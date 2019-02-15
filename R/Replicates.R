@@ -609,9 +609,13 @@ computeDMRsReplicates <- function(methylationData,
   } else {
     computedDMRs <- lapply(1:length(regionsList), .computeDMRsReplicatesBinsLoop)
   }
-  computedDMRs <- subset(computedDMRs, !sapply(computedDMRs, is.null))
   if(length(computedDMRs) > 0){
-    computedDMRs <- unlist(GRangesList(computedDMRs))
+    computedDMRs <- subset(computedDMRs, !sapply(computedDMRs, is.null))
+    if(length(computedDMRs) > 0){
+      computedDMRs <- unlist(GRangesList(computedDMRs))
+    } else{
+      computedDMRs <- GRanges()
+    }
 
 
     if(length(computedDMRs) > 0){
