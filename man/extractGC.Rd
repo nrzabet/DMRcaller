@@ -27,7 +27,7 @@ This function extracts GC sites in the genome
 # load the genome sequence
 if(!require("BSgenome.Athaliana.TAIR.TAIR9", character.only = TRUE)){
   if (!requireNamespace("BiocManager", quietly=TRUE))
-      install.packages("BiocManager")
+  install.packages("BiocManager")
   BiocManager::install("BSgenome.Athaliana.TAIR.TAIR9")
 }
 library(BSgenome.Athaliana.TAIR.TAIR9)

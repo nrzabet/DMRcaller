@@ -298,9 +298,244 @@ getWholeChromosomes <- function(methylationData){
     .stopIfNotAll(c(!is.null(methylationProfile[[i]]),
                   is(methylationProfile[[i]], "GRanges")),
                   paste(" element ",i," of the methylationProfile is not a GRanges object", sep=""))
-    .stopIfNotAll(c(ncol(mcols(methylationProfile[[i]])) == 4,
+    .stopIfNotAll(c(ncol(mcols(methylationProfile[[i]])) == 5,
                     length(methylationProfile[[i]]) > 0),
-                  paste(" element ",i," of the methylationProfile is not a GRanges object with four metadata columns (see computeMethylationProfile function).", sep=""))
+                  paste(" element ",i," of the methylationProfile is not a GRanges object with five metadata columns (see computeMethylationProfile function).", sep=""))
   }
 
+}
+
+#' Checks whether the passed parameter is the statistical test for detecting Co-methylation
+#'
+#' @title Validate statistial test for Co-methylation
+#' @param test the statistical test used to call Co-methylation (\code{"fisher"} for
+#' Fisher's exact test, \code{"score"} for Score test or \code{"permutation"} for Permutation test).
+#' @keywords internal
+#' @author Radu Zabet and Young Jun Kim
+.validateCoMethylationStatTest <- function(test){
+  .stopIfNotAll(c(!is.null(test), is.character(test), length(test) == 1, test %in% c("fisher","score","permutation","binom")),
+                " Test needs to be one of the following \"fisher\" for Fisher's exact test, \"score\" for Score test or \"permutation\" for Permutation test" )
+}
+
+#' Checks whether the passed parameter is the alternative for detecting Co-methylation
+#'
+#' @title Validate alternative value for Co-methylation
+#' @param test the alternative valuet used to Fisher exact's test must be one of
+#' \code{"two.sided"}, \code{"greater"} or \code{"less"}. You can specify just
+#' the initial letter.
+#' @keywords internal
+#' @author Radu Zabet and Young Jun Kim
+.validateCoMethylationAlternative <- function(alternative){
+  .stopIfNotAll(c(!is.null(alternative), is.character(alternative), length(alternative) == 1, alternative %in% c("two.sided","greater","less")),
+                " Alternative needs to be one of the following \"two.sided\", \"greater\" or \"less\" for Fisher's exact test" )
+}
+
+#' Checks whether the passed parameter is the modified context 
+#'
+#' @title Validate modified context 
+#' @param test the  modified context used to call methylation information from bamfile must be one of
+#' sequence context for \code{selectCytosine()} (e.g. \code{"CG"}, \code{"CHG"}, \code{"CHH"})
+#' @keywords internal
+#' @author Radu Zabet and Young Jun Kim
+.validateContext <- function(context){
+  .stopIfNotAll(c(!is.null(context), is.character(context), context %in% c("CG","CHG","CHH")),
+                " Modified context needs to be one of the following \"CG\", \"CHG\" or \"CHH\"" )
+}
+
+
+#' @title Validate BAM Filename
+#' @description
+#' Checks that `bamfile` exists and has a “.bam” extension.
+#'
+#' @param bamfile Character scalar. Path to a BAM file.
+#' @return Invisibly `TRUE` if file exists and extension is “.bam”; otherwise errors.
+#' @keywords internal
+#' @author Radu Zabet and Young Jun Kim
+.validateBamfile <- function(bamfile){
+  # stop if bamfile directory is not include the .bam file format  
+  .stopIfNotAll(c(!is.null(bamfile),is.character(bamfile), file.exists(bamfile), endsWith(tolower(bamfile), ".bam")),
+                "bamfile directory name should need .bam extension")
+}
+
+#' @title Validate BSgenome Object
+#' @description
+#' Ensures `genome` inherits from BSgenome and that its package is installed.
+#'
+#' @param genome A BSgenome object (e.g. BSgenome.Hsapiens.UCSC.hg38).
+#' @return Invisibly `TRUE` if valid; otherwise throws an error.
+#' @keywords internal
+#' @author Radu Zabet and Young Jun Kim
+.validateGenome <- function(genome) {
+  # 1) must be a BSgenome object
+  if (!inherits(genome, "BSgenome")) {
+    stop(
+      "`genome` must be supplied as a BSgenome object, not as a string literal;\n",
+      "please call e.g. `.validateGenome(BSgenome.Hsapiens.UCSC.hg38)` without quotes.",
+      call. = FALSE
+    )
+  }
+  
+  ## 2) extract its package name
+  pkg <- genome@pkgname
+  
+  ## 3) make sure BSgenome machinery is there
+  if (!requireNamespace("BSgenome", quietly=TRUE)) {
+    stop("please install the BSgenome package before specifying a genome", call. = FALSE)
+  }
+  
+  ## 4) get the official list of BSgenome packages
+  avail <- tryCatch(
+    {suppressMessages(suppressPackageStartupMessages(BSgenome::available.genomes()))},
+    error = function(e) NULL
+  )
+  
+  ## 5) fallback: any installed BSgenome.* packages
+  if (is.null(avail) || !is.character(avail)) {
+    avail <- grep("^BSgenome\\.", rownames(utils::installed.packages()), value=TRUE)
+  }
+  
+  ## 6) error if this genome isn’t known
+  if (!pkg %in% avail) {
+    stop(
+      sprintf(
+        "Loaded BSgenome object has package name '%s',\n  but that package is not among the installed/available BSgenome.* packages.\n  Known packages: %s%s",
+        pkg,
+        paste(head(avail, 3), collapse=", "),
+        if (length(avail)>3) ", …" else ""
+      ),
+      call. = FALSE
+    )
+  }
+  invisible(TRUE)
+}
+
+#' @title Validate Chromosome Names
+#' @description
+#' Checks that `chr` entries are present in the supplied BSgenome.
+#'
+#' @param chr Character vector of chromosome names.
+#' @param genome A validated BSgenome object.
+#' @return Invisibly `TRUE` if all `chr` are in `seqnames(genome)`; otherwise errors.
+#' @keywords internal
+#' @author Radu Zabet and Young Jun Kim
+.validateChromosome <- function(chr, genome){
+  # check the Chromosome is included in the genome
+  .stopIfNotAll(c(is.character(chr), chr %in% seqnames(genome)),
+                " Chromosome should select same code as the BSgenome provided" )
+}
+
+#' @title Validate Modification Tag in BAM
+#' @description
+#' Scans the BAM for MM/ML tags in the specified region (or whole file)
+#' and checks that `modif` is one of the observed modification codes.
+#'
+#' @param modif Character scalar. The MM tag code to validate (e.g. “C+m?”).
+#' @param bamfile Character path to BAM (must exist plus .bai index).
+#' @param chr Optional character vector of chromosome(s) to restrict scan.
+#' @param genome A BSgenome, used to determine seqlengths if `chr` is set.
+#' @return Invisibly `TRUE` if `modif` is found among the MM tags; otherwise errors.
+#' @author Radu Zabet and Young Jun Kim
+.validateModif <- function(modif, bamfile, chr, genome){
+  # stop if modif is not included in the tags in the bam
+  if (!file.exists(paste0(bamfile,".bai")))
+    Rsamtools::indexBam(bamfile)
+  if (!is.null(chr) && length(chr) > 0) {
+    which_region <- GenomicRanges::GRanges(seqnames = chr,
+      ranges = IRanges::IRanges(1, seqlengths(genome)[chr]))
+    param <- Rsamtools::ScanBamParam(tag = c("MM","ML"), which = which_region)
+  } else {
+    param <- Rsamtools::ScanBamParam(tag = c("MM","ML"))
+  }
+  
+  bam <- Rsamtools::scanBam(bamfile, param = param)[[1]]
+  bam_tag <- unique(bam$tag$MM)
+  bam_tag <- bam_tag[!is.na(bam_tag)]
+  
+  if (length(bam_tag) == 0) {
+    stop("No MM tag found in the BAM file for the selected region/chromosome.")
+  }
+  
+  # flatten all tags
+  bam_tag_split <- unlist(strsplit(as.character(bam_tag), ";", fixed = TRUE))
+  bam_tag_split <- bam_tag_split[nzchar(bam_tag_split)]  # remove empty strings
+  
+
+  code_list <- character()
+  for (i in seq_along(bam_tag_split)) {
+    parts <- strsplit(bam_tag_split[[i]], ",", fixed = TRUE)[[1]]
+    code_list <- c(code_list, parts[1])
+  }
+  
+  codes <- unique(code_list)
+  .stopIfNotAll(c(!is.null(modif), is.character(modif), length(modif) == 1, modif %in% codes),
+                c("Modified context must be one of: ", paste(shQuote(codes), collapse=", " )))
+}
+
+#' @title Validate or Auto‐Select a BiocParallelParam
+#' @description
+#' If `BPPARAM` is `NULL`, picks `SnowParam` or `MulticoreParam` based on env vars
+#' or OS; otherwise checks class and fork compatibility.
+#'
+#' @param BPPARAM A \code{BiocParallelParam} or `NULL`.
+#' @param progressbar Logical; whether to show a progress bar.
+#' @return A valid `BiocParallelParam` object.
+#' @keywords internal
+#' @author Radu Zabet and Young Jun Kim
+.validateBPPARAM <- function(BPPARAM = NULL, progressbar = FALSE) {
+  if (is.null(BPPARAM)) {
+    BPPARAM <- .chooseBPPARAM(progressbar = progressbar)
+    return(BPPARAM)
+  }
+  # must inherit from BiocParallelParam
+  if (!inherits(BPPARAM, "BiocParallelParam")) {
+    stop("`BPPARAM` must be a BiocParallelParam object, got: ",
+         paste(class(BPPARAM), collapse = "/"))
+  }
+  # no fork on Windows
+  if (.Platform$OS.type == "windows" &&
+      methods::is(BPPARAM, "MulticoreParam")) {
+    stop("MulticoreParam() (fork) not supported on Windows; please use SnowParam().")
+  }
+  invisible(BPPARAM)
+}
+
+#' @title Auto‐choose BiocParallelParam Backend
+#' @description
+#' 1) If `NSLOTS` or `SLURM_CPUS_ON_NODE` are set, uses `SnowParam()` with that many workers.  
+#' 2) On Windows, `SnowParam(detectCores())`.  
+#' 3) Otherwise on Unix, `MulticoreParam(detectCores())`.
+#'
+#' @param workers Optional integer to override detected cores.
+#' @param progressbar Logical; show progress bar.
+#' @param cluster_type Type passed to `SnowParam()`, defaults to "SOCK".
+#' @param ... Further args passed to `SnowParam` or `MulticoreParam`.
+#' @return A `SnowParam` or `MulticoreParam` configured with the desired workers.
+#' @keywords internal
+#' @author Radu Zabet and Young Jun Kim
+.chooseBPPARAM <- function(workers = NULL, progressbar = FALSE, cluster_type = "SOCK", ...) {
+  # 1) HPC scheduler slots
+  nslots <- as.integer(Sys.getenv("NSLOTS", unset = NA))
+  if (!is.na(nslots) && nslots > 1) {
+    cat("Detected SGE/PBS (NSLOTS=", nslots, ") -> using SnowParam()")
+    return(SnowParam(workers = nslots, type = cluster_type,
+                     progressbar = progressbar, ...))
+  }
+  # SLURM
+  cpus <- as.integer(Sys.getenv("SLURM_CPUS_ON_NODE", unset = NA))
+  if (!is.na(cpus) && cpus > 1) {
+    cat("Detected SLURM (SLURM_CPUS_ON_NODE=", cpus, ") -> using SnowParam()")
+    return(SnowParam(workers = cpus, type = cluster_type,
+                     progressbar = progressbar, ...))
+  }
+  
+  # 2) local fallback
+  os <- .Platform$OS.type
+  ncore <- if (is.null(workers)) parallel::detectCores(logical = FALSE) else workers
+  if (os == "windows") {
+    cat("Detected Windows -> using SnowParam() with ", ncore, " workers")
+    return(SnowParam(workers = ncore, progressbar = progressbar, ...))
+  }
+  # 3) Unix
+  cat("Local Unix -> using MulticoreParam() with forking and ", ncore, " workers")
+  MulticoreParam(workers = ncore, progressbar = progressbar, ...)
 }

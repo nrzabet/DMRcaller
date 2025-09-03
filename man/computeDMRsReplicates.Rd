@@ -4,12 +4,26 @@
 \alias{computeDMRsReplicates}
 \title{Compute DMRs}
 \usage{
-computeDMRsReplicates(methylationData, condition = NULL, regions = NULL,
-  context = "CG", method = "neighbourhood", binSize = 100,
-  test = "betareg", pseudocountM = 1, pseudocountN = 2,
-  pValueThreshold = 0.01, minCytosinesCount = 4,
-  minProportionDifference = 0.4, minGap = 200, minSize = 50,
-  minReadsPerCytosine = 4, cores = 1)
+computeDMRsReplicates(
+  methylationData,
+  condition = NULL,
+  regions = NULL,
+  context = "CG",
+  method = "neighbourhood",
+  binSize = 100,
+  test = "betareg",
+  pseudocountM = 1,
+  pseudocountN = 2,
+  pValueThreshold = 0.01,
+  minCytosinesCount = 4,
+  minProportionDifference = 0.4,
+  minGap = 200,
+  minSize = 50,
+  minReadsPerCytosine = 4,
+  parallel = FALSE,
+  BPPARAM = NULL,
+  cores = NULL
+)
 }
 \arguments{
 \item{methylationData}{the methylation data containing all the conditions
@@ -68,7 +82,14 @@ direction are joined.}
 \item{minReadsPerCytosine}{DMRs with the average number of reads lower than
 \code{minReadsPerCytosine} are discarded.}
 
-\item{cores}{the number of cores used to compute the DMRs.}
+\item{parallel}{Logical; run in parallel if \code{TRUE}.}
+
+\item{BPPARAM}{A \code{BiocParallelParam} object controlling parallel execution.
+This value will automatically set when parallel is \code{TRUE}, also able to set as manually.}
+
+\item{cores}{Integer number of workers (must not exceed BPPARAM$workers).
+This value will automatically set as the maximum number of system workers,
+also able to set as manually.}
 }
 \value{
 the DMRs stored as a \code{\link{GRanges}} object with the following
@@ -104,11 +125,11 @@ data("syntheticDataReplicates")
 
 # compute the DMRs in CG context with neighbourhood method
 
-# creating condition vector
+creating condition vector
 condition <- c("a", "a", "b", "b")
 
-# computing DMRs using the neighbourhood method
-DMRsReplicatesNeighbourhood <- computeDMRsReplicates(methylationData = methylationData,
+computing DMRs using the neighbourhood method
+DMRsReplicatesNeighbourhood <- computeDMRsReplicates(methylationData = syntheticDataReplicates,
                                                      condition = condition,
                                                      regions = NULL,
                                                      context = "CHH",

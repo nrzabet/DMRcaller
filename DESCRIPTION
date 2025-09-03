@@ -1,30 +1,36 @@
 Package: DMRcaller
 Type: Package
 Title: Differentially Methylated Regions caller
-Version: 1.15.2
+Version: 1.41.2
 Date: 2019-01-18
+Encoding: UTF-8
 Authors@R: c(person(given="Nicolae Radu", family="Zabet", role =
-        c("aut","cre"), email = "n.r.zabet@gen.cam.ac.uk"),
+        c("aut","cre"), email = "r.zabet@qmul.ac.uk"),
         person(given="Jonathan", family="Tsang", role = "aut", email =
         "jmft2@cam.ac.uk"), person(given="Alessandro", family="Greco",
         role = "aut", email = "apgrec@essex.ac.uk"), person(given="Ryan",
-        family="Merritt", role = "aut", email = "rmerri@essex.ac.uk"))
-Author: Nicolae Radu Zabet <n.r.zabet@gen.cam.ac.uk>, Jonathan
+        family="Merritt", role = "aut", email = "rmerri@essex.ac.uk"), person(given="Young Jun",
+        family="Kim", role = "aut", email = "qc25039@qmul.ac.uk"))
+Author: Nicolae Radu Zabet <r.zabet@qmul.ac.uk>, Jonathan
         Michael Foonlan Tsang <jmft2@cam.ac.uk>, Alessandro
-        Pio Greco <apgrec@essex.ac.uk> and Ryan Merritt <rmerri@essex.ac.uk>
-Maintainer: Nicolae Radu Zabet <n.r.zabet@gen.cam.ac.uk>
+        Pio Greco <apgrec@essex.ac.uk>, Ryan Merritt <rmerri@essex.ac.uk> and
+        Young Jun Kim <qc25039@qmul.ac.uk>
+Maintainer: Nicolae Radu Zabet <r.zabet@qmul.ac.uk>
 Description: Uses Bisulfite sequencing data in two conditions and
         identifies differentially methylated regions between the
         conditions in CG and non-CG context. The input is the CX report
         files produced by Bismark and the output is a list of DMRs
         stored as GRanges objects.
 License: GPL-3
+LinkingTo: Rcpp
 LazyLoad: yes
 Imports: parallel, Rcpp, RcppRoll, betareg, grDevices, graphics, methods, stats,
-        utils
+        utils, Rsamtools, GenomicRanges, GenomicAlignments, Biostrings, BSgenome, BiocManager,
+        S4Vectors, IRanges,  InteractionSet, stringr, inflection
 Depends: R (>= 3.5), GenomicRanges, IRanges, S4Vectors
-Suggests: knitr, RUnit, BiocGenerics
+Suggests: knitr, RUnit, BiocGenerics, rmarkdown
 biocViews: DifferentialMethylation, DNAMethylation, Software,
-        Sequencing, Coverage
+        Sequencing, NanoporeSequencing, LongReadSequencing, Coverage
 VignetteBuilder: knitr
 NeedsCompilation: no
+RoxygenNote: 7.3.2

@@ -4,11 +4,20 @@
 \alias{plotMethylationDataSpatialCorrelation}
 \title{Plot methylation data spatial correlation}
 \usage{
-plotMethylationDataSpatialCorrelation(methylationData1,
-  methylationData2 = NULL, distances, regions = NULL,
-  conditionsNames = NULL, context = "CG", labels = NULL, col = NULL,
-  pch = c(1, 0, 16, 2, 15, 17), lty = c(4, 1, 3, 2, 6, 5),
-  contextPerRow = FALSE, log = "")
+plotMethylationDataSpatialCorrelation(
+  methylationData1,
+  methylationData2 = NULL,
+  distances,
+  regions = NULL,
+  conditionsNames = NULL,
+  context = "CG",
+  labels = NULL,
+  col = NULL,
+  pch = c(1, 0, 16, 2, 15, 17),
+  lty = c(4, 1, 3, 2, 6, 5),
+  contextPerRow = FALSE,
+  log = ""
+)
 }
 \arguments{
 \item{methylationData1}{the methylation data in condition 1

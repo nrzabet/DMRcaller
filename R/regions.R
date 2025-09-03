@@ -196,7 +196,8 @@
                             pValueThreshold=0.01,
                             test="fisher",
                             alternative = "two.sided",
-                            cores = 1){  
+                            cores = 1,
+                            BPPARAM = BPPARAM){  
   overlaps <- countOverlaps(DMRs, DMRs, maxgap = minGap, ignore.strand = TRUE)
   notToJoin <- DMRs[overlaps == 1]
   
@@ -208,11 +209,11 @@
                              reduce(DMRs, min.gapwidth = minGap, 
                                     ignore.strand=TRUE), 
                              maxgap = minGap, ignore.strand = TRUE)
-    DMRsList <- IRanges::splitAsList(DMRs[queryHits(overlaps)],  
+    DMRsList <- S4Vectors::splitAsList(DMRs[queryHits(overlaps)],  
                                      subjectHits(overlaps))
     
     if(cores > 1){
-      bufferDMRs <- parallel::mclapply(1:length(DMRsList), function(i){ .getLongestDMRs(DMRsList[[i]],
+      bufferDMRs <- BiocParallel::bplapply(1:length(DMRsList), function(i){ .getLongestDMRs(DMRsList[[i]],
                                                                                         minGap = minGap, 
                                                                                         respectSigns = respectSigns, 
                                                                                         methylationData = methylationData,
@@ -221,7 +222,7 @@
                                                                                         pValueThreshold=pValueThreshold,
                                                                                         test=test,
                                                                                         alternative = alternative)}, 
-                                       mc.cores = cores)
+                                       BPPARAM = BPPARAM)
       bufferDMRs <- unlist(GRangesList(bufferDMRs))
      } else{
        bufferDMRs <- GRanges()
@@ -247,9 +248,6 @@
   
   return(DMRs)
 }
-
-
-
 
 
 
@@ -288,7 +286,7 @@
 .analyseReadsInsideRegions <- function(methylationData, regions){
   
   overlaps <- findOverlaps(methylationData, regions, ignore.strand = TRUE)
-  methylationDataContextList <- IRanges::splitAsList(methylationData[queryHits(overlaps)],  subjectHits(overlaps))
+  methylationDataContextList <- S4Vectors::splitAsList(methylationData[queryHits(overlaps)],  subjectHits(overlaps))
   regionsIndexes <- as.integer(names(methylationDataContextList))
   
   regions$sumReadsM1 <- rep(0, times=length(regions))
@@ -331,8 +329,6 @@
   return(sum(methylationData$readsN2))
 }
 
-
-
 #' Performs the analysis in all regions in a \code{\link{GRanges}} object
 #'
 #' @title Analyse reads inside regions
@@ -352,7 +348,7 @@
 .analyseReadsInsideRegionsForCondition <- function(regions, methylationData, label="", context=""){
   
   overlaps <- findOverlaps(methylationData, regions, ignore.strand = TRUE)
-  methylationDataContextList <- IRanges::splitAsList(methylationData[queryHits(overlaps)],  subjectHits(overlaps))
+  methylationDataContextList <- S4Vectors::splitAsList(methylationData[queryHits(overlaps)],  subjectHits(overlaps))
   regionsIndexes <- as.integer(names(methylationDataContextList))
   
   sumReadsM <- rep(0, times=length(regions))
@@ -519,10 +515,13 @@
   
   Proportion <- sumReadsM/sumReadsN
 
+  cytosines <- .movingSum(start(currentRegion), end(currentRegion), start(methylationData), rep(1, length(start(methylationData))), windowSize = binSize)
+  cytosinesCount <- cytosines[seq(1,length(cytosines)-binSize, by=binSize)]
   
   bins$sumReadsM <- sumReadsM
   bins$sumReadsN <- sumReadsN    
   bins$Proportion <- Proportion        
+  bins$cytosinesCount <- cytosinesCount 
   
   return(bins)
 }
@@ -567,18 +566,19 @@
 #' @author Radu Zabet
 .analyseReadsInsideRegionsOneSample <- function(methylationData, regions){
   overlaps <- findOverlaps(methylationData, regions, ignore.strand = TRUE)
-  methylationDataContextList <- IRanges::splitAsList(methylationData[queryHits(overlaps)],  subjectHits(overlaps))
+  methylationDataContextList <- S4Vectors::splitAsList(methylationData[queryHits(overlaps)],  subjectHits(overlaps))
   regionsIndexes <- as.integer(names(methylationDataContextList))
   
   regions$sumReadsM <- rep(0, times=length(regions))
   regions$sumReadsN <- rep(0, times=length(regions))    
   regions$Proportion <- rep(0, times=length(regions))        
-
+  regions$cytosinesCount <- rep(0, times=length(regions))
   
   regions$sumReadsM[regionsIndexes] <- sapply(methylationDataContextList,.sumReadsM)
   regions$sumReadsN[regionsIndexes] <- sapply(methylationDataContextList,.sumReadsN)  
-  
   regions$Proportion[regionsIndexes] <- regions$sumReadsM[regionsIndexes]/regions$sumReadsN[regionsIndexes]      
+  regions$cytosinesCount[regionsIndexes] <- sapply(methylationDataContextList, length)
+  
   return(regions)
 }
 
@@ -589,5 +589,278 @@
 .sumReadsN <- function(methylationData){
   return(sum(methylationData$readsN))
 }
+ 
+
+#' This takes a list of PMDs and attempts to merge PMDs while keeping the new 
+#' PMDs filtering by the preset parameter
+.mergePMDsIteratively <- function(PMDs, 
+                                  minGap, 
+                                  respectSigns = TRUE, 
+                                  methylationData,
+                                  minReadsPerCytosine = 4, 
+                                  minMethylation = 0.4,
+                                  maxMethylation = 0.6){
+  
+  overlaps <- countOverlaps(PMDs, PMDs, maxgap = minGap, ignore.strand = TRUE)
+  notToJoin <- PMDs[overlaps == 1]
+  PMDs <- PMDs[overlaps > 1]
+  
+  joinedAny <- TRUE
+  iteration <- 1
+  while(joinedAny){
+    joinedAny <- FALSE
+    bufferPMDs <-GRanges()    
+    index <- 1
+    localIndex <- index
+    joinedCount <- 0
+    while(localIndex < length(PMDs)){
+      localPMDs <- PMDs[index]
+      canJoin <- TRUE
+      while(canJoin){
+        localIndex <- localIndex + 1
+        newPMDs <-.joinPMDs(c(localPMDs, PMDs[localIndex]),
+                            minGap = minGap, 
+                            respectSigns = respectSigns, 
+                            methylationData = methylationData,
+                            minReadsPerCytosine = minReadsPerCytosine, 
+                            minMethylation = minMethylation,
+                            maxMethylation = maxMethylation)
+        if(length(newPMDs) == 1){
+          joinedCount <- joinedCount + 1          
+          localPMDs <- newPMDs
+          joinedAny <- TRUE
+          if(localIndex == length(PMDs)){
+            canJoin <- FALSE
+            bufferPMDs <- c(bufferPMDs, newPMDs)
+          }
+        } else{
+          bufferPMDs <- c(bufferPMDs, localPMDs)
+          canJoin <- FALSE
+          index <- localIndex
+          if(localIndex == length(PMDs)){
+            bufferPMDs <- c(bufferPMDs, PMDs[localIndex])
+          }
+        }
+      }
+    }
+    PMDs <- bufferPMDs
+    iteration <- iteration + 1
+  }
+  
+  PMDs <- c(PMDs, notToJoin)
+  
+  PMDs <- PMDs[order(PMDs)]
+  
+  return(PMDs)
+}
+
+# join if possible a set of PMDs
+.joinPMDs <- function(PMDs,
+                      minGap = minGap, 
+                      respectSigns = TRUE, 
+                      methylationData,
+                      minReadsPerCytosine = 4, 
+                      minMethylation = 0.4,
+                      maxMethylation = 0.6){
+  
+  #are within the requeired distance
+  if(length(reduce(PMDs, drop.empty.ranges=TRUE, min.gapwidth=minGap, 
+                   ignore.strand=TRUE)) == 1){
+    #all have the same direction
+    if(!respectSigns | length(unique(PMDs$direction)) == 1){
+      direction <- unique(PMDs$direction)
+      if(length(unique(strand(PMDs))) == 1){
+        localPMD <- PMDs[1]
+        end(localPMD) <- max(end(PMDs))
+        start(localPMD) <- min(start(PMDs))
+        localPMD <- .analyseReadsInsideRegionsPMDs(methylationData, localPMD)
+        if(localPMD$proportion >= minMethylation & localPMD$proportion <= maxMethylation &
+           localPMD$sumReadsN / localPMD$cytosinesCount >= minReadsPerCytosine){
+          PMDs <- localPMD
+        }
+      }
+    }
+  }
+  return(PMDs)
+}
+
+.getLongestPMDs <- function(PMDs,
+                            minGap = minGap, 
+                            respectSigns = TRUE, 
+                            methylationData = methylationData,
+                            minReadsPerCytosine = 4,
+                            minMethylation = 0.4,
+                            maxMethylation = 0.6){
+  newPMDs <-.joinPMDs(PMDs,
+                      minGap = minGap, 
+                      respectSigns = respectSigns, 
+                      methylationData = methylationData,
+                      minReadsPerCytosine = minReadsPerCytosine, 
+                      minMethylation = minMethylation,
+                      maxMethylation = maxMethylation)
+  if(length(newPMDs) == 1){
+    result <- newPMDs
+  } else{
+    result <- .mergePMDsIteratively(PMDs, 
+                                    minGap = minGap, 
+                                    respectSigns = respectSigns, 
+                                    methylationData = methylationData,
+                                    minReadsPerCytosine = minReadsPerCytosine, 
+                                    minMethylation = minMethylation,
+                                    maxMethylation = maxMethylation)
+    
+  }
+  return(result)
+}
+
+#' This takes a list of PMDs and attempts to merge PMDs while keeping the new 
+#' PMDs statistically significant
+.smartMergePMDs <- function(PMDs, 
+                            minGap, 
+                            respectSigns = TRUE, 
+                            methylationData,
+                            minReadsPerCytosine = 4, 
+                            minMethylation = 0.4,
+                            maxMethylation = 0.6,
+                            cores = 1,
+                            BPPARAM = BPPARAM){  
+  overlaps <- countOverlaps(PMDs, PMDs, maxgap = minGap, ignore.strand = TRUE)
+  notToJoin <- PMDs[overlaps == 1]
+  
+  PMDs <- PMDs[overlaps > 1]
+  
+  
+  if(length(PMDs) > 0){
+    overlaps <- findOverlaps(PMDs, 
+                             reduce(PMDs, min.gapwidth = minGap, 
+                                    ignore.strand=TRUE), 
+                             maxgap = minGap, ignore.strand = TRUE)
+    PMDsList <- S4Vectors::splitAsList(PMDs[queryHits(overlaps)],  
+                                       subjectHits(overlaps))
+    
+    if(cores > 1){
+      bufferPMDs <- BiocParallel::bplapply(1:length(PMDsList), function(i){ .getLongestPMDs(PMDsList[[i]],
+                                                                                        minGap = minGap, 
+                                                                                        respectSigns = respectSigns, 
+                                                                                        methylationData = methylationData,
+                                                                                        minReadsPerCytosine = minReadsPerCytosine, 
+                                                                                        minMethylation = minMethylation,
+                                                                                        maxMethylation = maxMethylation)}, 
+                                       BPPARAM = BPPARAM)
+      bufferPMDs <- unlist(GRangesList(bufferPMDs))
+    } else{
+      bufferPMDs <- GRanges()
+      for(i in 1:length(PMDsList)){
+        bufferPMDs <- c(bufferPMDs, .getLongestPMDs(PMDsList[[i]],
+                                                    minGap = minGap, 
+                                                    respectSigns = respectSigns, 
+                                                    methylationData = methylationData,
+                                                    minReadsPerCytosine = minReadsPerCytosine, 
+                                                    minMethylation = minMethylation,
+                                                    maxMethylation = maxMethylation))
+      }
+    } 
+    
+    PMDs <- c(bufferPMDs, notToJoin)
+  } else{
+    PMDs <- notToJoin
+  }
+  
+  PMDs <- PMDs[order(PMDs)]
+  
+  return(PMDs)
+}
+
+#' Performs the analysis in all regions in a \code{\link{GRanges}} object for 
+#' PMD calculation
+#'
+#' @title Analyse reads inside regions
+#' @param methylationData a \code{\link{GRanges}} object with five metadata 
+#' columns see \code{\link{methylationDataList}}
+#' @param regions a \code{\link{GRanges}} object with the identified regions
+#' @return a \code{\link{GRanges}} object with eaual sized tiles of the regions. 
+#' The object consists of the following metadata 
+#' \describe{
+#'  \item{sumReadsM}{the number of methylated reads}
+#'  \item{sumReadsN}{the total number of reads}
+#'  \item{proportion}{the proportion of methylated reads}
+#'  \item{ONT_Cm}{comma-delimited modified read‐indices}
+#'  \item{ONT_C}{comma-delimited read‐indices covering but unmodified}
+#'  \item{cytosinesCount}{the number of cytosines in the correct context} 
+#' }  
+#'       
+#' @author Radu Zabet and Young Jun Kim
+#' 
+.analyseReadsInsideRegionsPMDs <- function(methylationData, regions){
+  
+  overlaps <- findOverlaps(methylationData, regions, ignore.strand = TRUE)
+  methylationDataContextList <- S4Vectors::splitAsList(methylationData[queryHits(overlaps)],  subjectHits(overlaps))
+  regionsIndexes <- as.integer(names(methylationDataContextList))
+  
+  regions$sumReadsM <- rep(0, times=length(regions))
+  regions$sumReadsN <- rep(0, times=length(regions))    
+  regions$proportion <- rep(0, times=length(regions)) 
+  regions$cytosinesCount <- rep(0, times=length(regions))        
+  
+  
+  if(length(regionsIndexes) > 0){  
+    regions$sumReadsM[regionsIndexes] <- sapply(methylationDataContextList,.sumReadsM)
+    regions$sumReadsN[regionsIndexes] <- sapply(methylationDataContextList,.sumReadsN)               
+    regions$cytosinesCount[regionsIndexes] <- sapply(methylationDataContextList,length)
+    
+    valid <- regions$cytosinesCount[regionsIndexes] > 0
+    regions$proportion[regionsIndexes[valid]] <- regions$sumReadsM[regionsIndexes[valid]]/regions$sumReadsN[regionsIndexes[valid]]     
+  }
+  return(regions)
+}
 
 
+.sumReadsM <- function(methylationData){
+  return(sum(methylationData$readsM))
+}
+.sumReadsN <- function(methylationData){
+  return(sum(methylationData$readsN))
+}
+
+#' Performs the analysis in equal width regions of an \code{\link{GRanges}} 
+#' object
+#'
+#' @title Analyse reads inside regions
+#' @param methylationData a \code{\link{GRanges}} object with five metadata 
+#' columns; see \code{\link{methylationDataList}}
+#' @param regions a \code{\link{GRanges}} object with the identified regions
+#' @return a \code{\link{GRanges}} object with eaual sized tiles of the regions. 
+#' The object consists of the following metadata 
+#' \describe{
+#'  \item{sumReadsM1}{the number of methylated reads in condition 1}
+#'  \item{sumReadsN1}{the total number of reads in condition 1}
+#'  \item{proportion1}{the proportion of methylated reads in condition 1}
+#'  \item{sumReadsM2}{the number of methylated reads in condition 2} 
+#'  \item{sumReadsN2}{the total number of reads in condition 2} 
+#'  \item{proportion2}{the proportion of methylated reads in condition 2} 
+#'  \item{cytosinesCount}{the number of cytosines in the correct context} 
+#' }  
+#'       
+#' @author Radu Zabet and Young Jun Kim
+.analyseReadsInsideBinsPMDs <- function(methylationData, bins, currentRegion){
+  
+  binSize <- min(unique(width(bins)))
+  #Rcpp
+  readsM <- .movingSum(start(currentRegion), end(currentRegion), start(methylationData), methylationData$readsM, windowSize = binSize)
+  sumReadsM <- readsM[seq(1,length(readsM)-binSize, by=binSize)]
+  
+  readsN <- .movingSum(start(currentRegion), end(currentRegion), start(methylationData), methylationData$readsN, windowSize = binSize)
+  sumReadsN <- readsN[seq(1,length(readsN)-binSize, by=binSize)]
+  
+  proportion <- sumReadsM/sumReadsN
+  
+  cytosines <- .movingSum(start(currentRegion), end(currentRegion), start(methylationData), rep(1, length(start(methylationData))), windowSize = binSize)
+  cytosinesCount <- cytosines[seq(1,length(cytosines)-binSize, by=binSize)]
+  
+  bins$sumReadsM <- sumReadsM
+  bins$sumReadsN <- sumReadsN   
+  bins$proportion <- proportion        
+  bins$cytosinesCount <- cytosinesCount 
+  
+  return(bins)
+}

@@ -4,8 +4,10 @@
 \name{syntheticDataReplicates}
 \alias{syntheticDataReplicates}
 \title{Simulated data for biological replicates}
-\format{A \code{\link{GRanges}} object containing multiple metadata
-columns with the reads from each object passed as parameter}
+\format{
+A \code{\link{GRanges}} object containing multiple metadata
+columns with the reads from each object passed as parameter
+}
 \source{
 The object was created by calling \code{\link{joinReplicates}}
  function.

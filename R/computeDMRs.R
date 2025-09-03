@@ -52,7 +52,12 @@
 #' @param minSize DMRs with a size smaller than \code{minSize} are discarded.
 #' @param minReadsPerCytosine  DMRs with the average number of reads lower than 
 #' \code{minReadsPerCytosine} are discarded. 
-#' @param cores the number of cores used to compute the DMRs. 
+#' @param parallel Logical; run in parallel if \code{TRUE}.
+#' @param BPPARAM A \code{BiocParallelParam} object controlling parallel execution.
+#'    This value will automatically set when parallel is \code{TRUE}, also able to set as manually.
+#' @param cores Integer number of workers (must not exceed BPPARAM$workers).
+#'    This value will automatically set as the maximum number of system workers,
+#'    also able to set as manually.
 #' @return the DMRs stored as a \code{\link{GRanges}} object with the following 
 #' metadata columns:
 #' \describe{
@@ -131,9 +136,28 @@ computeDMRs <- function(methylationData1,
                         minGap = 200, 
                         minSize = 50, 
                         minReadsPerCytosine = 4, 
-                        cores = 1) {
+                        parallel = FALSE,
+                        BPPARAM = NULL,
+                        cores = NULL) {
   ##Parameters checking
   cat("Parameters checking ...\n")
+  
+  # generate the BPPARAM value if set as parallel 
+  if (parallel == TRUE){
+    BPPARAM <- suppressWarnings(.validateBPPARAM(BPPARAM, progressbar = TRUE)) 
+  }else{
+    # Force serial execution
+    BPPARAM <- BiocParallel::SerialParam(progressbar = TRUE)
+  }
+  if (!is.null(cores)){
+    .stopIfNotAll(c(.isInteger(cores, positive=TRUE)), 
+                  " the number of cores to used when computing the DMRs needs to be an integer  hirger or equal to 1.")
+    .stopIfNotAll(BPPARAM$workers >= cores, paste0("the cores should be smaller than system's cores, current system cores: ",BPPARAM$workers))
+    BPPARAM$workers <- cores
+  } else {
+    cores <- BPPARAM$workers
+  }
+  cat("Current parallel setting, BPPARAM: ", capture.output(BPPARAM),sep = "\n")
   
   .validateMethylationData(methylationData1, variableName="methylationData1")
   .validateMethylationData(methylationData2, variableName="methylationData2")
@@ -198,9 +222,7 @@ computeDMRs <- function(methylationData1,
   
   .stopIfNotAll(c(.isInteger(minReadsPerCytosine, positive=TRUE)), 
                 " the minimum average number of reads in a DMR is an integer higher or equal to 0")
-  
-  .stopIfNotAll(c(.isInteger(cores, positive=TRUE)), 
-                " the number of cores to used when computing the DMRs needs to be an integer  hirger or equal to 1.")
+
   
   computedDMRs <- GRanges()
   
@@ -219,7 +241,8 @@ computeDMRs <- function(methylationData1,
                                             minGap = minGap, 
                                             minSize = minSize, 
                                             minReadsPerCytosine = minReadsPerCytosine, 
-                                            cores = cores)
+                                            cores = cores,
+                                            BPPARAM = BPPARAM)
   } else if(method == "neighbourhood"){
     computedDMRs <- .computeDMRsNeighbourhood(methylationData1 = methylationData1, 
                                               methylationData2 = methylationData2, 
@@ -232,7 +255,8 @@ computeDMRs <- function(methylationData1,
                                               minGap = minGap, 
                                               minSize = minSize, 
                                               minReadsPerCytosine = minReadsPerCytosine, 
-                                              cores = cores)
+                                              cores = cores,
+                                              BPPARAM = BPPARAM)
   } else if(method == "bins"){
     computedDMRs <- .computeDMRsBins(methylationData1 = methylationData1, 
                                      methylationData2 = methylationData2, 
@@ -246,7 +270,8 @@ computeDMRs <- function(methylationData1,
                                      minGap = minGap, 
                                      minSize = minSize, 
                                      minReadsPerCytosine = minReadsPerCytosine, 
-                                     cores = cores)
+                                     cores = cores,
+                                     BPPARAM = BPPARAM)
     
   } else{
     cat("Unknown method: ",method," \n")
@@ -271,7 +296,8 @@ computeDMRs <- function(methylationData1,
                                     minGap = 200, 
                                     minSize = 50, 
                                     minReadsPerCytosine = 4, 
-                                    cores = 1) {
+                                    cores = 1,
+                                    BPPARAM = BPPARAM) {
   
   regions <- reduce(regions)
   
@@ -294,7 +320,7 @@ computeDMRs <- function(methylationData1,
   
   regionsList <- .splitGRangesEqualy(regions, cores)
   
-  # inner loop function for parallel::mclapply
+  # inner loop function for BiocParallel::bplapply
   .computeDMRsInterpolationLoop = function(i){
     computedDMRs <- GRanges()    
     for(index in 1:length(regionsList[[i]])){
@@ -396,10 +422,10 @@ computeDMRs <- function(methylationData1,
     
   }
   
-  # compute the DMRs
+  # compute the DMRs (TEST: using bplapply )
   if(cores > 1){
     cat("Compute the DMRs using ", cores, "cores\n")
-    computedDMRs <- parallel::mclapply(1:length(regionsList), .computeDMRsInterpolationLoop, mc.cores = cores)
+    computedDMRs <- BiocParallel::bplapply(1:length(regionsList), .computeDMRsInterpolationLoop, BPPARAM = BPPARAM)
   } else {
     computedDMRs <- lapply(1:length(regionsList), .computeDMRsInterpolationLoop)
   }
@@ -414,10 +440,10 @@ computeDMRs <- function(methylationData1,
     overlaps <- countOverlaps(localContextMethylationData, computedDMRs)
     localContextMethylationDataDMRs <- localContextMethylationData[overlaps > 0]
     if(cores > 1){
-      computedDMRsList <- IRanges::splitAsList(computedDMRs,  rep(1:cores, length.out=length(computedDMRs)))
-      bufferComputedDMRsList <- parallel::mclapply(1:length(computedDMRsList), function(i){ 
+      computedDMRsList <- S4Vectors::splitAsList(computedDMRs,  rep(1:cores, length.out=length(computedDMRs)))
+      bufferComputedDMRsList <- BiocParallel::bplapply(1:length(computedDMRsList), function(i){ 
         .analyseReadsInsideRegions(localContextMethylationDataDMRs, computedDMRsList[[i]])}, 
-        mc.cores = cores)
+        BPPARAM = BPPARAM)
       computedDMRs <- unlist(GRangesList(bufferComputedDMRsList))
       computedDMRs <- computedDMRs[order(computedDMRs)]
       
@@ -425,7 +451,7 @@ computeDMRs <- function(methylationData1,
       computedDMRs <- .analyseReadsInsideRegions(localContextMethylationDataDMRs, computedDMRs)
     }
     computedDMRs <- computedDMRs[computedDMRs$cytosinesCount > 0]
-
+    
     computedDMRs$pValue <- .computeaAjustedPValuesInDMRs(test, computedDMRs ,alternative = "two.sided")
     
     computedDMRs <- computedDMRs[computedDMRs$pValue < pValueThreshold & 
@@ -446,7 +472,8 @@ computeDMRs <- function(methylationData1,
                                       pValueThreshold=pValueThreshold,
                                       test=test, 
                                       alternative = "two.sided",
-                                      cores = cores)
+                                      cores = cores,
+                                      BPPARAM = BPPARAM)
     }  
     
     cat("Filter DMRs \n")    
@@ -486,7 +513,8 @@ computeDMRs <- function(methylationData1,
                                       minGap = 200, 
                                       minSize = 50, 
                                       minReadsPerCytosine = 4, 
-                                      cores = 1) {  
+                                      cores = 1,
+                                      BPPARAM = BPPARAM) {  
   
   regions <- reduce(regions)
   
@@ -549,7 +577,8 @@ computeDMRs <- function(methylationData1,
                                       pValueThreshold=pValueThreshold,
                                       test=test, 
                                       alternative = "two.sided",
-                                      cores = cores)
+                                      cores = cores,
+                                      BPPARAM = BPPARAM)
     } else{
       computedDMRs <- DMPs
     } 
@@ -591,7 +620,8 @@ computeDMRs <- function(methylationData1,
                              minGap = 200, 
                              minSize = 50, 
                              minReadsPerCytosine = 4, 
-                             cores = 1) {
+                             cores = 1,
+                             BPPARAM = BPPARAM) {
   
   regions <- reduce(regions)
   
@@ -614,7 +644,7 @@ computeDMRs <- function(methylationData1,
   
   regionsList <- .splitGRangesEqualy(regions, cores)
   
-  # inner loop function for parallel::mclapply
+  # inner loop function for BiocParallel::bplapply
   .computeDMRsBinsLoop = function(i){
     computedDMRs <- GRanges()
     for(index in 1:length(regionsList[[i]])){
@@ -673,7 +703,7 @@ computeDMRs <- function(methylationData1,
   # compute the DMRs
   if(cores > 1){
     cat("Compute the DMRs using ", cores, "cores\n")
-    computedDMRs <- parallel::mclapply(1:length(regionsList), .computeDMRsBinsLoop, mc.cores = cores)
+    computedDMRs <- BiocParallel::bplapply(1:length(regionsList), .computeDMRsBinsLoop, BPPARAM = BPPARAM)
   } else {
     computedDMRs <- lapply(1:length(regionsList), .computeDMRsBinsLoop)
   }
@@ -699,7 +729,8 @@ computeDMRs <- function(methylationData1,
                                       pValueThreshold=pValueThreshold,
                                       test=test, 
                                       alternative = "two.sided",
-                                      cores = cores)
+                                      cores = cores,
+                                      BPPARAM = BPPARAM)
     }  
     
     cat("Filter DMRs \n")    
@@ -722,9 +753,6 @@ computeDMRs <- function(methylationData1,
   
   return(computedDMRs)
 }
-
-
-
 
 #' This function verifies whether a set of pottential DMRs (e.g. genes, 
 #' transposons, CpG islands) are differentially methylated or not.
@@ -752,7 +780,12 @@ computeDMRs <- function(methylationData1,
 #' \code{minProportionDifference} are discarded.
 #' @param minReadsPerCytosine  DMRs with the average number of reads lower than 
 #' \code{minReadsPerCytosine} are discarded. 
-#' @param cores the number of cores used to compute the DMRs. 
+#' @param parallel Logical; run in parallel if \code{TRUE}.
+#' @param BPPARAM A \code{BiocParallelParam} object controlling parallel execution.
+#'    This value will automatically set when parallel is \code{TRUE}, also able to set as manually.
+#' @param cores Integer number of workers (must not exceed BPPARAM$workers).
+#'    This value will automatically set as the maximum number of system workers,
+#'    also able to set as manually. 
 #' @return a \code{\link{GRanges}} object with 11 metadata columns that contain 
 #' the DMRs; see \code{\link{computeDMRs}}.
 #' @seealso \code{\link{DMRsNoiseFilterCG}}, \code{\link{computeDMRs}}, 
@@ -789,9 +822,29 @@ filterDMRs <- function(methylationData1,
                        minCytosinesCount = 4, 
                        minProportionDifference = 0.4, 
                        minReadsPerCytosine = 3, 
-                       cores = 1) {
+                       parallel = FALSE,
+                       BPPARAM = NULL,
+                       cores = NULL) {
   ##Parameters checking
   cat("Parameters checking ...\n")
+  
+  # generate the BPPARAM value if set as parallel 
+  if (parallel == TRUE){
+    BPPARAM <- suppressWarnings(.validateBPPARAM(BPPARAM, progressbar = TRUE)) 
+  }else{
+    # Force serial execution
+    BPPARAM <- BiocParallel::SerialParam(progressbar = TRUE)
+  }
+  if (!is.null(cores)){
+    .stopIfNotAll(c(.isInteger(cores, positive=TRUE)), 
+                  " the number of cores to used when computing the DMRs needs to be an integer  hirger or equal to 1.")
+    .stopIfNotAll(BPPARAM$workers >= cores, paste0("the cores should be smaller than system's cores, current system cores: ",BPPARAM$workers))
+    BPPARAM$workers <- cores
+  } else {
+    cores <- BPPARAM$workers
+  }
+  cat("Current parallel setting, BPPARAM: ", capture.output(BPPARAM),sep = "\n")
+  
   
   .validateMethylationData(methylationData1, variableName="methylationData1")
   .validateMethylationData(methylationData2, variableName="methylationData2")
@@ -818,9 +871,6 @@ filterDMRs <- function(methylationData1,
   .stopIfNotAll(c(.isInteger(minReadsPerCytosine, positive=TRUE)), 
                 " the minimum number of reads in a bin is an integer higher or equal to 0")
   
-  .stopIfNotAll(c(.isInteger(cores, positive=TRUE)), 
-                " the number of cores to use when computing the DMRs.")
-  
   regions <- reduce(regions)
   
   if(length(potentialDMRs) > 0){
@@ -846,7 +896,7 @@ filterDMRs <- function(methylationData1,
     
     regionsList <- .splitGRangesEqualy(regions, cores)
     
-    # inner loop function for parallel::mclapply
+    # inner loop function for BiocParallel::bplapply
     .filterDMRsLoop = function(i){
       computedDMRs <- GRanges()  
       for(index in 1:length(regionsList[[i]])){
@@ -881,7 +931,7 @@ filterDMRs <- function(methylationData1,
     # compute the DMRs
     if(cores > 1){
       cat("Compute the DMRs using ", cores, "cores\n")
-      computedDMRs <- parallel::mclapply(1:length(regionsList), .filterDMRsLoop, mc.cores = cores)
+      computedDMRs <- BiocParallel::bplapply(1:length(regionsList), .filterDMRsLoop, BPPARAM = BPPARAM)
     } else {
       computedDMRs <- lapply(1:length(regionsList), .filterDMRsLoop)
     }
@@ -919,9 +969,6 @@ filterDMRs <- function(methylationData1,
   return(computedDMRs)
   
 }
-
-
-
 #' This function takes a list of DMRs and attempts to merge DMRs while keeping 
 #' the new DMRs statistically significant.
 #'
@@ -952,7 +999,12 @@ filterDMRs <- function(methylationData1,
 #' Fisher's exact test or \code{"score"} for Score test). 
 #' @param alternative indicates the alternative hypothesis and must be one of 
 #' \code{"two.sided"}, \code{"greater"} or \code{"less"}.
-#' @param cores the number of cores used to compute the DMRs. 
+#' @param parallel Logical; run in parallel if \code{TRUE}.
+#' @param BPPARAM A \code{BiocParallelParam} object controlling parallel execution.
+#'    This value will automatically set when parallel is \code{TRUE}, also able to set as manually.
+#' @param cores Integer number of workers (must not exceed BPPARAM$workers).
+#'    This value will automatically set as the maximum number of system workers,
+#'    also able to set as manually.
 #' @return the reduced list of DMRs as a \code{\link{GRanges}} object; 
 #' e.g. see \code{\link{computeDMRs}}
 #' @seealso \code{\link{filterDMRs}}, \code{\link{computeDMRs}}, 
@@ -1025,10 +1077,29 @@ mergeDMRsIteratively <- function(DMRs,
                                  pValueThreshold=0.01,
                                  test="fisher",
                                  alternative = "two.sided",
-                                 cores = 1){
+                                 parallel = FALSE,
+                                 BPPARAM = NULL,
+                                 cores = NULL){
   
   ##Parameters checking
   cat("Parameters checking ...\n")
+  
+  # generate the BPPARAM value if set as parallel 
+  if (parallel == TRUE){
+    BPPARAM <- suppressWarnings(.validateBPPARAM(BPPARAM, progressbar = TRUE)) 
+  }else{
+    # Force serial execution
+    BPPARAM <- BiocParallel::SerialParam(progressbar = TRUE)
+  }
+  if (!is.null(cores)){
+    .stopIfNotAll(c(.isInteger(cores, positive=TRUE)), 
+                  " the number of cores to used when computing the DMRs needs to be an integer  hirger or equal to 1.")
+    .stopIfNotAll(BPPARAM$workers >= cores, paste0("the cores should be smaller than system's cores, current system cores: ",BPPARAM$workers))
+    BPPARAM$workers <- cores
+  } else {
+    cores <- BPPARAM$workers
+  }
+  cat("Current parallel setting, BPPARAM: ", capture.output(BPPARAM),sep = "\n")
   
   .validateMethylationData(methylationData1, variableName="methylationData1")
   .validateMethylationData(methylationData2, variableName="methylationData2")
@@ -1052,8 +1123,6 @@ mergeDMRsIteratively <- function(DMRs,
   .stopIfNotAll(c(.isInteger(minReadsPerCytosine, positive=TRUE)), 
                 " the minimum average number of reads in a DMR is an integer higher or equal to 0")
   
-  .stopIfNotAll(c(.isInteger(cores, positive=TRUE)), 
-                " the number of cores to use when computing the DMRs.")
   totalRegion <- reduce(DMRs, drop.empty.ranges=FALSE, min.gapwidth=minGap, ignore.strand=TRUE)
   
   contextMethylationData1 <- methylationData1[methylationData1$context%in%context]
@@ -1081,7 +1150,8 @@ mergeDMRsIteratively <- function(DMRs,
                          pValueThreshold=pValueThreshold,
                          test=test, 
                          alternative = alternative, 
-                         cores = cores))                                               
+                         cores = cores,
+                         BPPARAM = BPPARAM))                                               
 }
 
 
@@ -1097,7 +1167,12 @@ mergeDMRsIteratively <- function(DMRs,
 #' @param context the context in which to extract the reads (\code{"CG"}, 
 #' \code{"CHG"} or \code{"CHH"}).
 #' @param label a string to be added to the columns to identify the condition
-#' @param cores the number of cores used to compute the DMRs. 
+#' @param parallel Logical; run in parallel if \code{TRUE}.
+#' @param BPPARAM A \code{BiocParallelParam} object controlling parallel execution.
+#'    This value will automatically set when parallel is \code{TRUE}, also able to set as manually.
+#' @param cores Integer number of workers (must not exceed BPPARAM$workers).
+#'    This value will automatically set as the maximum number of system workers,
+#'    also able to set as manually.
 #' @return a \code{\link{GRanges}} object with additional four metadata columns
 #' \describe{
 #'  \item{sumReadsM}{the number of methylated reads}
@@ -1105,7 +1180,7 @@ mergeDMRsIteratively <- function(DMRs,
 #'  \item{proportion}{the proportion methylated reads} 
 #'  \item{cytosinesCount}{the number of cytosines in the regions} 
 #' }
-#' @seealso \code{\link{filterDMRs}}, \code{\link{computeDMRs}}, 
+#' @seealso \code{\link{readONTbam}}, \code{\link{filterDMRs}}, \code{\link{computeDMRs}}, 
 #' \code{\link{DMRsNoiseFilterCG}}, and \code{\link{mergeDMRsIteratively}}
 #' @examples
 #' 
@@ -1129,15 +1204,33 @@ analyseReadsInsideRegionsForCondition <- function(regions,
                                                   methylationData,
                                                   context,
                                                   label = "",
-                                                  cores = 1){
+                                                  parallel = FALSE,
+                                                  BPPARAM = NULL,
+                                                  cores = NULL){
   
   ##Parameters checking
   cat("Parameters checking ...\n")
+                                                    
+  # generate the BPPARAM value if set as parallel 
+  if (parallel == TRUE){
+    BPPARAM <- suppressWarnings(.validateBPPARAM(BPPARAM, progressbar = TRUE)) 
+  }else{
+    # Force serial execution
+    BPPARAM <- BiocParallel::SerialParam(progressbar = TRUE)
+  }
+  if (!is.null(cores)){
+    .stopIfNotAll(c(.isInteger(cores, positive=TRUE)), 
+                  " the number of cores to used when computing the DMRs needs to be an integer  hirger or equal to 1.")
+    .stopIfNotAll(BPPARAM$workers >= cores, paste0("the cores should be smaller than system's cores, current system cores: ",BPPARAM$workers))
+    BPPARAM$workers <- cores
+  } else {
+    cores <- BPPARAM$workers
+  }
+  cat("Current parallel setting, BPPARAM: ", capture.output(BPPARAM),sep = "\n")
+  
   .validateGRanges(regions, generateGenomeWide=FALSE, variableName="regions", minLength=NULL)
   .validateMethylationData(methylationData, variableName="methylationData")
   .validateContext(context)
-  .stopIfNotAll(c(.isInteger(cores, positive=TRUE)), 
-                " the number of cores to use when computing the DMRs.")
   
   cat("Extract methylation levels in corresponding context ...\n")
   contextMethylationData <- methylationData[methylationData$context%in%context]
@@ -1155,8 +1248,8 @@ analyseReadsInsideRegionsForCondition <- function(regions,
                                                                context = context)
         return(regionsLocal)
       }
-      regions <- parallel::mclapply(1:length(regionsList), 
-                                    .analyseReadsInsideRegionsForConditionLoop, mc.cores = cores)
+      regions <- BiocParallel::bplapply(1:length(regionsList), 
+                                    .analyseReadsInsideRegionsForConditionLoop, BPPARAM = BPPARAM)
       regions <- unlist(GRangesList(regions))
     } else{
       regions <- .analyseReadsInsideRegionsForCondition(regions, 

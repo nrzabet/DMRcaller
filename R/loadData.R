@@ -169,23 +169,51 @@ saveBismark <- function(methylationData, filename){
 #' 2
 #' @return a the methylation data stored as a \code{\link{GRanges}} 
 #' object with six metadata columns (see \code{\link{methylationDataList}}).
-.joinMethylationData <- function(cx1, cx2){
-  
+.joinMethylationData <- function(cx1, cx2, sample1_name = "Sample1", sample2_name = "Sample2"){
   overlaps <- findOverlaps(cx1, cx2)
-  indexes <- which(!duplicated(queryHits(overlaps)))
-  methylData <- GRanges(seqnames = seqnames(cx1[queryHits(overlaps)[indexes]]), 
-                        ranges   = ranges(cx1[queryHits(overlaps)[indexes]]), 
-                        strand   = strand(cx1[queryHits(overlaps)[indexes]]), 
-                        context  = cx1$context[queryHits(overlaps)[indexes]],
-                        trinucleotide_context = cx1$trinucleotide_context[queryHits(overlaps)[indexes]], 
-                        readsM1  = cx1$readsM[queryHits(overlaps)[indexes]], 
-                        readsN1  = cx1$readsN[queryHits(overlaps)[indexes]],                                   
-                        readsM2  = cx2$readsM[subjectHits(overlaps)[indexes]], 
-                        readsN2  = cx2$readsN[subjectHits(overlaps)[indexes]])
+  indexes  <- which(!duplicated(queryHits(overlaps)))
+  i1 <- queryHits(overlaps)[indexes]
+  i2 <- subjectHits(overlaps)[indexes]
+  
+  methylData <- GRanges(
+    seqnames = seqnames(cx1)[i1],
+    ranges   = ranges(cx1)[i1],
+    strand   = strand(cx1)[i1],
+    context  = cx1$context[i1],
+    trinucleotide_context = cx1$trinucleotide_context[i1],
+    readsM1 = cx1$readsM[i1], readsN1 = cx1$readsN[i1],
+    readsM2 = cx2$readsM[i2], readsN2 = cx2$readsN[i2]
+  )
+  
+  hasCm <- "ONT_Cm" %in% names(mcols(cx1)) || "ONT_Cm" %in% names(mcols(cx2))
+  hasC  <- "ONT_C"  %in% names(mcols(cx1)) || "ONT_C"  %in% names(mcols(cx2))
+  
+  if (hasCm) {
+    ont1_cm <- as.list(cx1$ONT_Cm[i1])
+    ont2_cm <- as.list(cx2$ONT_Cm[i2])
+    mcols(methylData)$ONT_Cm <- CharacterList(
+      mapply(function(a, b) {
+        a <- a[!is.na(a) & a != ""]
+        b <- b[!is.na(b) & b != ""]
+        c(if(length(a)) paste0(sample1_name, "_", a), 
+                 if(length(b)) paste0(sample2_name, "_", b))
+      }, ont1_cm, ont2_cm, SIMPLIFY = FALSE)
+    )
+  }
+  if (hasC) {
+    ont1_c <- as.list(cx1$ONT_C[i1])
+    ont2_c <- as.list(cx2$ONT_C[i2])
+    mcols(methylData)$ONT_C <- CharacterList(
+      mapply(function(a, b) {
+        a <- a[!is.na(a) & a != ""]
+        b <- b[!is.na(b) & b != ""]
+        c(if(length(a)) paste0(sample1_name, "_", a), 
+                 if(length(b)) paste0(sample2_name, "_", b))
+      }, ont1_c, ont2_c, SIMPLIFY = FALSE)
+    )
+  }
   return(methylData)
 }
-
-
 
 #' This function pools together multiple methylation datasets. 
 #'
@@ -195,7 +223,8 @@ saveBismark <- function(methylationData, filename){
 #' data in the corresponding condition (see \code{\link{methylationDataList}}).
 #' @return the methylation data stored as a \code{\link{GRanges}} 
 #' object with four metadata columns (see \code{\link{methylationDataList}}).
-#' 
+#' If the Granges are from ONT datasets, its have six metedata columns include as 
+#' ONT_Cm and ONT_C (see \code{\link{readONTbam}}).
 #' @examples
 #' # load methylation data object
 #' data(methylationDataList)
@@ -203,35 +232,38 @@ saveBismark <- function(methylationData, filename){
 #' # pools the two datasets together
 #' pooledMethylationData <- poolMethylationDatasets(methylationDataList)
 #' 
-#' @author Nicolae Radu Zabet
+#' @author Nicolae Radu Zabet updated by Young Jun Kim 
 #' 
 #' @export
 poolMethylationDatasets <- function(methylationDataList){
   .validateMethylationDataList(methylationDataList)
   
+  n <- length(methylationDataList)
+  sample_names <- names(methylationDataList)
+  if (is.null(sample_names)) sample_names <- paste0("Sample", seq_len(n))
+  
   pooledMethylationData <- methylationDataList[[1]]
-  if(length(methylationDataList) > 1){
-    for(i in 2:length(methylationDataList)){
+  if (n > 1) {
+    for (i in 2:n) {
       cat("joining two datasets ...\n")
-      buffer <- .joinMethylationData(pooledMethylationData, methylationDataList[[i]])
-      
+      buffer <- .joinMethylationData(pooledMethylationData, methylationDataList[[i]],
+                                     sample1_name = sample_names[i-1],
+                                     sample2_name = sample_names[i])
       pooledMethylationData <- GRanges(seqnames = seqnames(buffer), 
                                        ranges   = ranges(buffer), 
                                        strand   = strand(buffer), 
                                        context  = buffer$context,
+                                       trinucleotide_context = buffer$trinucleotide_context,
+                                       ONT_Cm   = buffer$ONT_Cm,
+                                       ONT_C    = buffer$ONT_C,
                                        readsM  = (buffer$readsM1 + buffer$readsM2), 
-                                       readsN  = (buffer$readsN1 + buffer$readsN2),                                       
-                                       trinucleotide_context = buffer$trinucleotide_context)                                   
+                                       readsN  = (buffer$readsN1 + buffer$readsN2)
+      )
       cat("the sum was performed ...\n")
-      
-      
     }
   }
-  
-  return(pooledMethylationData)      
+  return(pooledMethylationData)
 }
-
-
 
 #' This function pools together two methylation datasets. 
 #'
@@ -242,6 +274,8 @@ poolMethylationDatasets <- function(methylationDataList){
 #' data (see \code{\link{methylationDataList}}).
 #' @return the methylation data stored as a \code{\link{GRanges}} 
 #' object with four metadata columns (see \code{\link{methylationDataList}}).
+#' If the Granges are from ONT datasets, its have six metedata columns include as 
+#' ONT_Cm and ONT_C (see \code{\link{readONTbam}}).
 #' 
 #' @examples
 #' # load methylation data object
@@ -251,28 +285,30 @@ poolMethylationDatasets <- function(methylationDataList){
 #' pooledMethylationData <- poolTwoMethylationDatasets(methylationDataList[[1]], 
 #'                          methylationDataList[[2]])
 #' 
-#' @author Nicolae Radu Zabet
+#' @author Nicolae Radu Zabet updated by Young Jun Kim 
 #' 
 #' @export
-poolTwoMethylationDatasets <- function(methylationData1, methylationData2){
+poolTwoMethylationDatasets <- function(methylationData1, methylationData2, 
+                                       sample1_name = NULL, sample2_name = NULL) {
   .validateMethylationData(methylationData1)
   .validateMethylationData(methylationData2)
-  
+  if (is.null(sample1_name)) sample1_name <- deparse(substitute(methylationData1))
+  if (is.null(sample2_name)) sample2_name <- deparse(substitute(methylationData2))
   
   cat("joining two datasets ...\n")
-  buffer <- .joinMethylationData(methylationData1, methylationData2)
+  buffer <- .joinMethylationData(methylationData1, methylationData2, 
+                                 sample1_name = sample1_name, sample2_name = sample2_name)
   
   pooledMethylationData <- GRanges(seqnames = seqnames(buffer), 
                                    ranges   = ranges(buffer), 
                                    strand   = strand(buffer), 
                                    context  = buffer$context,
+                                   trinucleotide_context = buffer$trinucleotide_context,
+                                   ONT_Cm   = buffer$ONT_Cm,
+                                   ONT_C    = buffer$ONT_C,
                                    readsM  = (buffer$readsM1 + buffer$readsM2), 
-                                   readsN  = (buffer$readsN1 + buffer$readsN2),                                       
-                                   trinucleotide_context = buffer$trinucleotide_context)      
-  
+                                   readsN  = (buffer$readsN1 + buffer$readsN2)
+  )
   cat("the sum was performed ...\n")
-  
-  
-  
   return(pooledMethylationData)      
 }

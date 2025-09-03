@@ -198,7 +198,12 @@ joinReplicates <- function(methylationData1, methylationData2, usecomplete = FAL
 #' @param minSize DMRs with a size smaller than \code{minSize} are discarded.
 #' @param minReadsPerCytosine  DMRs with the average number of reads lower than
 #' \code{minReadsPerCytosine} are discarded.
-#' @param cores the number of cores used to compute the DMRs.
+#' @param parallel Logical; run in parallel if \code{TRUE}.
+#' @param BPPARAM A \code{BiocParallelParam} object controlling parallel execution.
+#'    This value will automatically set when parallel is \code{TRUE}, also able to set as manually.
+#' @param cores Integer number of workers (must not exceed BPPARAM$workers).
+#'    This value will automatically set as the maximum number of system workers,
+#'    also able to set as manually.
 #' @return the DMRs stored as a \code{\link{GRanges}} object with the following
 #' metadata columns:
 #' \describe{
@@ -228,11 +233,11 @@ joinReplicates <- function(methylationData1, methylationData2, usecomplete = FAL
 #'
 #' # compute the DMRs in CG context with neighbourhood method
 #'
-#' # creating condition vector
+#' creating condition vector
 #' condition <- c("a", "a", "b", "b")
 #'
-#' # computing DMRs using the neighbourhood method
-#' DMRsReplicatesNeighbourhood <- computeDMRsReplicates(methylationData = methylationData,
+#' computing DMRs using the neighbourhood method
+#' DMRsReplicatesNeighbourhood <- computeDMRsReplicates(methylationData = syntheticDataReplicates,
 #'                                                      condition = condition,
 #'                                                      regions = NULL,
 #'                                                      context = "CHH",
@@ -248,6 +253,7 @@ joinReplicates <- function(methylationData1, methylationData2, usecomplete = FAL
 #'                                                      minReadsPerCytosine = 4,
 #'                                                      cores = 1)
 #' }
+#' @import betareg
 #' @author Alessandro Pio Greco and Nicolae Radu Zabet
 #' @export
 computeDMRsReplicates <- function(methylationData,
@@ -265,10 +271,29 @@ computeDMRsReplicates <- function(methylationData,
                                   minGap = 200,
                                   minSize = 50,
                                   minReadsPerCytosine = 4,
-                                  cores = 1) {
+                                  parallel = FALSE,
+                                  BPPARAM = NULL,
+                                  cores = NULL) {
   #Parameters checking
   cat("Parameters checking ...\n")
 
+  # generate the BPPARAM value if set as parallel 
+  if (parallel == TRUE){
+    BPPARAM <- suppressWarnings(.validateBPPARAM(BPPARAM, progressbar = TRUE)) 
+  }else{
+    # Force serial execution
+    BPPARAM <- BiocParallel::SerialParam(progressbar = TRUE)
+  }
+  if (!is.null(cores)){
+    .stopIfNotAll(c(.isInteger(cores, positive=TRUE)), 
+                  " the number of cores to used when computing the DMRs needs to be an integer  hirger or equal to 1.")
+    .stopIfNotAll(BPPARAM$workers >= cores, paste0("the cores should be smaller than system's cores, current system cores: ",BPPARAM$workers))
+    BPPARAM$workers <- cores
+  } else {
+    cores <- BPPARAM$workers
+  }
+  cat("Current parallel setting, BPPARAM: ", capture.output(BPPARAM),sep = "\n")
+  
   .validateMethylationData(methylationData, variableName="methylationData")
 
   .validateConditionReplicates(condition, methylationData)
@@ -316,9 +341,6 @@ computeDMRsReplicates <- function(methylationData,
   .stopIfNotAll(c(.isInteger(minReadsPerCytosine, positive=TRUE)),
                 " the minimum average number of reads in a DMR is an integer higher or equal to 0")
 
-  .stopIfNotAll(c(.isInteger(cores, positive=TRUE)),
-                " the number of cores to used when computing the DMRs needs to be an integer  hirger or equal to 1.")
-
   computedDMRs <- GRanges()
 
   if(method == "neighbourhood"){
@@ -334,6 +356,7 @@ computeDMRsReplicates <- function(methylationData,
                                                         minGap = minGap,
                                                         minSize = minSize,
                                                         minReadsPerCytosine = minReadsPerCytosine,
+                                                        BPPARAM = BPPARAM,
                                                         cores = cores)
   } else if(method == "bins"){
     computedDMRs <- .computeDMRsReplicatesBins(methylationData = methylationData,
@@ -349,6 +372,7 @@ computeDMRsReplicates <- function(methylationData,
                                                minGap = minGap,
                                                minSize = minSize,
                                                minReadsPerCytosine = minReadsPerCytosine,
+                                               BPPARAM = BPPARAM,
                                                cores = cores)
 
   } else{
@@ -372,7 +396,8 @@ computeDMRsReplicates <- function(methylationData,
                                                 minGap = 200,
                                                 minSize = 50,
                                                 minReadsPerCytosine = 4,
-                                                cores = 1){
+                                                BPPARAM = BPPARAM,
+                                                cores = cores){
   condition <- as.factor(condition)
 
   regions <- reduce(regions)
@@ -389,7 +414,7 @@ computeDMRsReplicates <- function(methylationData,
   m <- grep("readsM", names(mcols(localContextMethylationData)))
   n <- grep("readsN", names(mcols(localContextMethylationData)))
 
-  # inner loop function for parallel::mclapply
+  # inner loop function for BiocParallel::bplapply
   .computeDMPsReplicatesNeighbourhoodLoop = function(i){
     computedDMPs <- GRanges()
     for(index in 1:length(regionsList[[i]])){
@@ -449,7 +474,7 @@ computeDMRsReplicates <- function(methylationData,
   # compute the DMRs
   if(cores > 1){
     cat("Compute the DMRs using ", cores, "cores\n")
-    computedDMPs <- parallel::mclapply(1:length(regionsList), .computeDMPsReplicatesNeighbourhoodLoop, mc.cores = cores)
+    computedDMPs <- BiocParallel::bplapply(1:length(regionsList), .computeDMPsReplicatesNeighbourhoodLoop, BPPARAM = BPPARAM)
   } else {
     computedDMPs <- lapply(1:length(regionsList), .computeDMPsReplicatesNeighbourhoodLoop)
   }
@@ -477,7 +502,8 @@ computeDMRsReplicates <- function(methylationData,
                                                   condition = condition,
                                                   m = m,
                                                   n = n,
-                                                  cores = cores)
+                                                  cores = cores,
+                                                  BPPARAM = BPPARAM)
       }
 
 
@@ -518,7 +544,8 @@ computeDMRsReplicates <- function(methylationData,
                                        minGap = 200,
                                        minSize = 50,
                                        minReadsPerCytosine = 4,
-                                       cores = 1) {
+                                       BPPARAM = BPPARAM,
+                                       cores = cores) {
 
   condition <- as.factor(condition)
 
@@ -532,11 +559,10 @@ computeDMRsReplicates <- function(methylationData,
 
   regionsList <- .splitGRangesEqualy(regions, cores)
 
-
   m <- grep("readsM", names(mcols(localContextMethylationData)))
   n <- grep("readsN", names(mcols(localContextMethylationData)))
 
-  # inner loop function for parallel::mclapply
+  # inner loop function for BiocParallel::bplapply
   .computeDMRsReplicatesBinsLoop = function(i){
     computedDMRs <- GRanges()
     for(index in 1:length(regionsList[[i]])){
@@ -556,11 +582,11 @@ computeDMRsReplicates <- function(methylationData,
         cat("Count inside each bin...\n")
         #bins <- .analyseReadsInsideRegions(localMethylationData, bins, context, cores)
         bins <- .analyseReadsInsideBinsReplicates(localMethylationData, bins, currentRegion, condition, pseudocountM, pseudocountN)
-
-
+        
         cat("Filter the bins...\n")
         # Get rid of the bins with fewer than minCytosinesCount cytosines inside.
         bins  <- bins[bins$cytosinesCount >= minCytosinesCount]
+        
 
         # Get rid of the bins with fewer than minReadsPerCytosine reads per cytosine.
         bins  <- bins[(bins$sumReadsN1/bins$cytosinesCount >= minReadsPerCytosine) &
@@ -605,10 +631,11 @@ computeDMRsReplicates <- function(methylationData,
   # compute the DMRs
   if(cores > 1){
     cat("Compute the DMRs using ", cores, "cores\n")
-    computedDMRs <- parallel::mclapply(1:length(regionsList), .computeDMRsReplicatesBinsLoop, mc.cores = cores)
+    computedDMRs <- BiocParallel::bplapply(1:length(regionsList), .computeDMRsReplicatesBinsLoop, BPPARAM = BPPARAM)
   } else {
     computedDMRs <- lapply(1:length(regionsList), .computeDMRsReplicatesBinsLoop)
   }
+  
   if(length(computedDMRs) > 0){
     computedDMRs <- subset(computedDMRs, !sapply(computedDMRs, is.null))
     if(length(computedDMRs) > 0){
@@ -638,7 +665,8 @@ computeDMRsReplicates <- function(methylationData,
                                                   condition = condition,
                                                   m = m,
                                                   n = n,
-                                                  cores = cores)
+                                                  cores = cores,
+                                                  BPPARAM = BPPARAM)
       }
 
       cat("Filter DMRs \n")
@@ -660,6 +688,11 @@ computeDMRsReplicates <- function(methylationData,
     }
   } else{
     computedDMRs <- GRanges()
+  }
+  ## remove proportions R1,2,3,4..
+  cols_to_remove <- grep("^proportionsR[1-4]+$", names(mcols(computedDMRs)), value = TRUE)
+  if (length(cols_to_remove) > 0) {
+    mcols(computedDMRs)[, cols_to_remove] <- NULL
   }
   return(computedDMRs)
 }
@@ -854,6 +887,14 @@ computeDMRsReplicates <- function(methylationData,
   n1 <- n[which(condition == unique(condition)[1])]
   m2 <- m[which(condition == unique(condition)[2])]
   n2 <- n[which(condition == unique(condition)[2])]
+  
+  # sumReadsM1 <- sum(readsM[,which(condition == unique(condition)[1])])
+  # sumReadsN1 <- sum(readsN[,which(condition == unique(condition)[1])])
+  # proportion1 <- (sumReadsM1 + pseudocountM)/ (sumReadsN1 + pseudocountN)
+  # 
+  # sumReadsM2 <- sum(readsM[,which(condition == unique(condition)[2])])
+  # sumReadsN2 <- sum(readsN[,which(condition == unique(condition)[2])])
+  # proportion2 <- (sumReadsM2 + pseudocountM)/ (sumReadsN2 + pseudocountN)
 
   readsM1 <- readsM[,which(condition == unique(condition)[1])]
   # readsM1 <- matrix(0, ncol = length(m1), nrow=length(bins))
@@ -861,39 +902,56 @@ computeDMRsReplicates <- function(methylationData,
   #   test <- .movingSum(start(currentRegion), end(currentRegion), start(methylationData), mcols(methylationData)[[m1[i]]], windowSize = binSize)
   #   readsM1[,i] <- test[seq(1,length(test)-binSize, by=binSize)]
   # }
-  sumReadsM1 <-  apply(readsM1,1,sum)
-
-
-
+  # sumReadsM1 <-  apply(readsM1,1,sum)
+  if (is.null(dim(readsM1))) {
+    sumReadsM1 <- sum(readsM1)
+  } else {
+    sumReadsM1 <- rowSums(readsM1)
+  }
+  
+  
   readsN1 <- readsN[,which(condition == unique(condition)[1])]
   # readsN1 <- matrix(0, ncol = length(n1), nrow=length(bins))
   # for(i in 1:length(n1)){
   #   test <- .movingSum(start(currentRegion), end(currentRegion), start(methylationData), mcols(methylationData)[[n1[i]]], windowSize = binSize)
   #   readsN1[,i] <- test[seq(1,length(test)-binSize, by=binSize)]
   # }
-  sumReadsN1 <- apply(readsN1,1,sum)
+  # sumReadsN1 <- apply(readsN1,1,sum)
+  if (is.null(dim(readsN1))) {
+    sumReadsN1 <- sum(readsN1)
+  } else {
+    sumReadsN1 <- rowSums(readsN1)
+  }
   proportion1 <- (sumReadsM1 + pseudocountM)/ (sumReadsN1 + pseudocountN)
-
-
+  
+  
   readsM2 <- readsM[,which(condition == unique(condition)[2])]
   # readsM2 <- matrix(0, ncol = length(m2), nrow=length(bins))
   # for(i in 1:length(m2)){
   #   test <- .movingSum(start(currentRegion), end(currentRegion), start(methylationData), mcols(methylationData)[[m2[i]]], windowSize = binSize)
   #   readsM2[,i] <- test[seq(1,length(test)-binSize, by=binSize)]
   # }
-  sumReadsM2 <- apply(readsM2,1,sum)
-
+  # sumReadsM2 <- apply(readsM2,1,sum)
+  if (is.null(dim(readsM2))) {
+    sumReadsM2 <- sum(readsM2)
+  } else {
+    sumReadsM2 <- rowSums(readsM2)
+  }
+  
   readsN2 <- readsN[,which(condition == unique(condition)[2])]
   # readsN2 <- matrix(0, ncol = length(n2), nrow=length(bins))
   # for(i in 1:length(n2)){
   #   test <- .movingSum(start(currentRegion), end(currentRegion), start(methylationData), mcols(methylationData)[[n2[i]]], windowSize = binSize)
   #   readsN2[,i] <- test[seq(1,length(test)-binSize, by=binSize)]
   # }
-  sumReadsN2 <- apply(readsN2,1,sum)
-
-  #
+  # sumReadsN2 <- apply(readsN2,1,sum)
+  if (is.null(dim(readsN2))) {
+    sumReadsN2 <- sum(readsN2)
+  } else {
+    sumReadsN2 <- rowSums(readsN2)
+  }
   proportion2 <- (sumReadsM2 + pseudocountM)/ (sumReadsN2 + pseudocountN)
-
+  
   cytosines <- .movingSum(start(currentRegion), end(currentRegion), start(methylationData), rep(1, length(start(methylationData))), windowSize = binSize)
   cytosinesCount <- cytosines[seq(1,length(cytosines)-binSize, by=binSize)]
 
@@ -934,7 +992,7 @@ computeDMRsReplicates <- function(methylationData,
 #' @author Nicolae Radu Zabet and Alessandro Pio Greco
 .analyseReadsInsideRegionsReplicates <- function(methylationData, regions, condition, m, n){
   overlaps <- findOverlaps(methylationData, regions, ignore.strand = TRUE)
-  methylationDataContextList <- IRanges::splitAsList(methylationData[queryHits(overlaps)],  subjectHits(overlaps))
+  methylationDataContextList <- S4Vectors::splitAsList(methylationData[queryHits(overlaps)],  subjectHits(overlaps))
   regionsIndexes <- as.integer(names(methylationDataContextList))
   # methylationDataContextList <-
   # regions <- methylationData[queryHits(findOverlaps(methylationData, DMRs))]
@@ -1066,7 +1124,8 @@ computeDMRsReplicates <- function(methylationData,
                                       condition = condition,
                                       m = m,
                                       n = n,
-                                      cores = 1){
+                                      cores = 1,
+                                      BPPARAM = BPPARAM){
 
 
 
@@ -1081,13 +1140,13 @@ computeDMRsReplicates <- function(methylationData,
                              reduce(DMRsToJoin, min.gapwidth = minGap,
                                     ignore.strand=TRUE),
                              maxgap = minGap, ignore.strand = TRUE)
-    DMRsList <- IRanges::splitAsList(DMRsToJoin[queryHits(overlaps)],
+    DMRsList <- S4Vectors::splitAsList(DMRsToJoin[queryHits(overlaps)],
                                      subjectHits(overlaps))
 
 
 
     if(cores > 1){
-      bufferDMRs <- parallel::mclapply(1:length(DMRsList), function(i){ .getLongestDMRsReplicates(DMRsList[[i]],
+      bufferDMRs <- BiocParallel::bplapply(1:length(DMRsList), function(i){ .getLongestDMRsReplicates(DMRsList[[i]],
                                                                                                   minGap = minGap,
                                                                                                   respectSigns = respectSigns,
                                                                                                   methylationData = methylationData,
@@ -1100,7 +1159,7 @@ computeDMRsReplicates <- function(methylationData,
                                                                                                   m = m,
                                                                                                   n = n,
                                                                                                   cores = 1)},
-                                       mc.cores = cores)
+                                       BPPARAM = BPPARAM)
 
       bufferDMRs <- unlist(GRangesList(bufferDMRs))
     } else{

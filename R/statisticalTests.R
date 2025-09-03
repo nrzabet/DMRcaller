@@ -139,7 +139,7 @@
   if(test == "score"){
     pValue <- .scoreTest(m1,n1,m2,n2)
   } else{
-    pValue <- .fisherTest(m1,n1,m2,n2, alternative="two.sided")
+    pValue <- .fisherTest(m1,n1,m2,n2, alternative=alternative)
   }
 
 

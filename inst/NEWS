@@ -1,3 +1,10 @@
+Version 1.42.1:
+    Added functions to read Oxford Nanopore methylation data from Dorado bam files
+    Added functions to detect Partially Methylated Domains PMDs
+    Added functions to detect Variably methylated domains (VMDs) using ONT data
+    Added functions to detect Variably Methylated Regions (VMRs) using ONT data
+    Added functions to detect co-methylation using ONT data
+    Updated parallel computing to use BiocParallel
 Version 1.11.1:
     Added functions detect DMRs from biological replicates (beta regression)
     Added functions to compute/plot spatial correlation of methylation level

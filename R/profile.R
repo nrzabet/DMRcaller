@@ -17,6 +17,7 @@
 #'  \item{sumReadsM}{the number of methylated reads.}
 #'  \item{sumReadsN}{the total number of reads.}
 #'  \item{Proportion}{the proportion of methylated reads.}
+#'  \item{cytosinesCount}{the number of cytosines in the regions}
 #'  \item{context}{the context (\code{"CG"}, \code{"CHG"} or \code{"CHH"}).}
 #' }
 #' @seealso \code{\link{plotMethylationProfileFromData}},

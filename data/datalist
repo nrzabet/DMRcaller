@@ -1,4 +1,10 @@
 DMRsNoiseFilterCG
+GEs_hg38
 GEs
 methylationDataList
+ont_gr_GM18870_chr1_PMD_bins_1k
+ont_gr_GM18870_chr1_sorted_bins_1k
+ontSampleGRangesList
+PMDsBinsCG
+PMDsNoiseFilterCG
 syntheticDataReplicates

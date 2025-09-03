@@ -17,7 +17,7 @@
   for (index in 1:length(regions)) {
     currentRegion <- regions[index]
     localMethylationData <- methylationData[queryHits(findOverlaps(methylationData, currentRegion))]
-    count <- count + length(which(localMethylationData$readsN > threshold))
+    count <- count + length(which(localMethylationData$readsN >= threshold))
   }
   return(count)
 }
